@@ -20,30 +20,50 @@ only the first kind of deviation is fatal.
 |---|---|---|
 | **I1** | A unit of work is **isolable** — a task gets a clean, private place to work | one task at a time per repository, on its own branch |
 | **I2** | Done is **machine-checkable locally**, in seconds | the gauge: declared stages, run on the agent's way out |
-| **I3** | Work lands **somewhere that is not the human's branch** | `agent-dev`, and the human merges from it |
+| **I3** | Work lands **somewhere that is not the human's branch** | `agent/dev`, optionally a second stop on `agent/staging`, and the human merges from it |
 | **I4** | A task's blast radius is **declarable** | the exclusion key is the repository |
 
 Repositories side by side in one folder, a documentation submodule, the names
-`dev` and `agent-dev` — none of that is an invariant. It is one implementation
-of the four above, and it is the one detent implements.
+`dev` and `agent/dev`, how many stops the work makes before the human gate —
+none of that is an invariant. It is one implementation of the four above, and it
+is the one detent implements.
 
 ---
 
 ## 2. The territory
 
 ```
-         human                      │              agents
-   ──────────────────────────────────┼──────────────────────────────────
-   dev, feature/*, hotfix/*          │   agent-dev
-                                     │   agent-task/<id>-<slug>
-                                     │
-   merge dev → agent-dev  ───────────┼──→  here is my work, take it into account
-   merge agent-dev → dev  ←──────────┼───  I accept yours
+       human                   │                     agents
+  ─────────────────────────────┼──────────────────────────────────────────
+  dev → staging → main         │   agent/task-<id>-<slug>
+  feature/*, hotfix/*          │         │ merge, when the gauge is green
+                               │         ▼
+                               │   agent/dev
+                               │         │ promote, when the batch is green
+                               │         ▼   (optional, §7)
+                               │   agent/staging
+                               │
+  dev → agent/dev  ────────────┼──→  here is my work, take it into account
+  agent/staging → dev  ←───────┼───  I accept yours
 ```
 
-detent reads and writes `agent-dev` and `agent-task/*`. It does not check out,
-commit to, merge into, or create a branch outside that namespace — including
-`agent-dev`'s own starting point.
+detent reads and writes refs under **`refs/heads/agent/`** and nothing else. It
+does not check out, commit to, merge into, or create a branch outside that
+namespace — including the starting point of `agent/dev` itself.
+
+The namespace is a single predicate rather than a convention spread across
+string comparisons: a ref about to be written either begins with `agent/` or the
+write is a bug. Everything detent owns is also one glob —
+`git for-each-ref refs/heads/agent/` — which is what makes the invariant below
+testable in one assertion instead of a list of branch names somebody has to
+remember to extend.
+
+One git detail travels with the slash: **a branch named exactly `agent` cannot
+coexist with the namespace.** Refs are stored as paths, and a path cannot be
+both a file and a directory — `'refs/heads/agent' exists; cannot create
+'refs/heads/agent/dev'`, and the same error in the other direction. `detent
+doctor` checks for it, because encountered mid-run it reads as a mystery rather
+than a naming clash.
 
 **Both gates are human operations, in both directions.** detent does not offer
 to run them, because the point of the boundary is that crossing it is a
@@ -51,34 +71,38 @@ decision, not a step.
 
 Two consequences, stated so they are not mistaken for oversights:
 
-- **You create `agent-dev` yourself.** Creating it means naming a start point,
-  and the start point is a human branch. `detent doctor` prints the command and
-  stops there.
-- **A repository rests on `agent-dev`, not on your branch.** detent does not put
+- **You create `agent/dev` yourself** — and `agent/staging`, if you declare one.
+  Creating a branch means naming a start point, and the start point is a human
+  branch. `detent doctor` prints the command and stops there.
+- **A repository rests on `agent/dev`, not on your branch.** detent does not put
   you back where you were, because putting you back means naming your branch.
   You switch back yourself.
 
 ### The invariant that gets tested first
 
 > Every exit from a task — success, red gauge, rejection, exception, Ctrl-C —
-> leaves the repository **on `agent-dev` with a clean tree**, and no commit
-> exists on any branch without the `agent-` prefix.
+> leaves the repository **on `agent/dev` with a clean tree**, and every ref that
+> moved lives under `refs/heads/agent/`.
 
 This is the only place detent can destroy work that is not its own, so it is the
 first thing covered by tests and the thing `detent recover` exists to restore.
 
+The test is a snapshot of *every* ref before a run and after it, asserting that
+the difference falls entirely inside the namespace. One assertion, and it fails
+on a branch nobody thought to enumerate.
+
 ### Divergence is reported, never acted on
 
-A human branch may be read to report how far `agent-dev` has drifted from it:
+A human branch may be read to report how far `agent/dev` has drifted from it:
 
 ```
-acme-api      agent-dev  ≡ dev
-acme-web      agent-dev  12 commits behind dev   ⚠ agents cannot see your work
-acme-admin    agent-dev  3 tasks ahead of dev    waiting for your review
+acme-api      agent/dev  ≡ dev
+acme-web      agent/dev  12 commits behind dev   ⚠ agents cannot see your work
+acme-admin    agent/dev  3 tasks ahead of dev    waiting for your review
 ```
 
 Reading a ref is not touching a branch. Nothing follows from this report
-automatically — stale `agent-dev` turns the gauge red for reasons that are not
+automatically — stale `agent/dev` turns the gauge red for reasons that are not
 the agent's fault, and knowing that is the point.
 
 ---
@@ -89,8 +113,10 @@ Nine conditions. `detent doctor` checks all of them and names what to change.
 
 1. git, not a shallow clone
 2. the product's repositories sit side by side in one folder — one per unit of ownership
-3. each repository has one human branch
-4. the gauge is declared as stages: a name and a command, runnable locally, in seconds
+3. each repository names **one** human branch as the point `agent/dev` is
+   reported against — a release train behind it is not detent's business
+4. the gauge is declared as stages: a name and a command, runnable locally — the
+   per-attempt profile in seconds
 5. a clean tree when a run starts
 6. an agent CLI installed and authenticated
 7. the integration branch is not deployed; pushing is done by hand
@@ -110,7 +136,7 @@ A task has a number, assigned when it is created. The number is the key; the
 slug is for people.
 
 ```
-tasks/todo/0042-wallet-endpoint.md   →   agent-task/0042-wallet-endpoint
+tasks/todo/0042-wallet-endpoint.md   →   agent/task-0042-wallet-endpoint
 ```
 
 The number appears in the filename and in the frontmatter, so it is visible
@@ -146,7 +172,7 @@ The frontmatter is bookkeeping. **Only the body reaches the agent** — the spec
 written before the work *is* the prompt, not a second document that drifts away
 from it.
 
-`touches_contract: true` makes the task a barrier (§7).
+`touches_contract: true` makes the task a barrier (§8).
 
 ### Validation before any of it runs
 
@@ -162,10 +188,10 @@ the difference between a typo and three wasted attempts.
 ```
 tasks/todo/0042-wallet-endpoint.md
 
-  gate: clean tree · no merge or rebase in progress · agent-dev exists · repo free
+  gate: clean tree · no merge or rebase in progress · agent/dev exists · repo free
         ──→ any of these fails: the repository is skipped, the run continues
 
-  git checkout -b agent-task/0042-wallet-endpoint agent-dev
+  git checkout -b agent/task-0042-wallet-endpoint agent/dev
 
   ┌── the agent works in the main copy
   │   gauge (exit profile)
@@ -175,11 +201,11 @@ tasks/todo/0042-wallet-endpoint.md
 
   acceptance pass, on a different model — may demote, never approve
 
-  accepted  → checkout agent-dev → merge → done/
+  accepted  → checkout agent/dev → merge → done/
               conflict → merge --abort → escalation
   otherwise → wip commit on the task branch → failed/
 
-  always    → checkout agent-dev, clean tree
+  always    → checkout agent/dev, clean tree
   always    → one line appended to the journal
 ```
 
@@ -191,14 +217,14 @@ tasks/todo/0042-wallet-endpoint.md
 | `rejected` | **gauge green and the task still was not done** | kept | no |
 | `escalated` | three identical failures on one stage | kept | no |
 | `error` | the run itself broke — quota, crash, exception | kept | no |
-| `skipped` | the gate refused: dirty tree, no `agent-dev` | none | no |
+| `skipped` | the gate refused: dirty tree, no `agent/dev` | none | no |
 
 `rejected` is a separate outcome on purpose. It is the number this project
 exists to produce: the machine checks were green and the work was still not
 done. Folding it into `escalated` would hide exactly the measurement that
 justifies running an acceptance pass at all.
 
-Failed work never reaches `agent-dev`, so the next task in that repository
+Failed work never reaches `agent/dev`, so the next task in that repository
 branches from a clean base and does not inherit someone else's mess.
 
 ---
@@ -216,6 +242,9 @@ Stages are declared, not discovered:
   ],
   "merge": [
     { "stage": "build",     "command": "npm run build" }
+  ],
+  "promote": [
+    { "stage": "e2e",       "command": "npm run e2e" }
   ]
 }
 ```
@@ -224,9 +253,17 @@ Guessing which link of a `&&` chain died by pattern-matching its output works
 for exactly one package manager. Declaring the stages costs three lines and
 gives an exact answer for make, cargo, pytest and everything else.
 
-**Two profiles, because one gauge cannot be both.** `exit` runs on every attempt
-and must be seconds — anything slower makes each agent iteration expensive.
-`merge` runs once, before landing on `agent-dev`, and may be slow.
+**Three profiles, because one gauge cannot answer three questions.** Each is
+tied to what it is allowed to cost, and the unit it checks:
+
+| Profile | Runs | Unit | Budget |
+|---|---|---|---|
+| `exit` | every attempt, on the agent's way out | one attempt | seconds — anything slower makes each iteration expensive |
+| `merge` | once, before landing on `agent/dev` | one task | may be slow |
+| `promote` | once, before landing on `agent/staging` | a batch of tasks | may be very slow (§7) |
+
+`promote` is optional and does nothing on its own: without a declared
+`agent/staging` there is nowhere to promote to.
 
 **A repository that declares no gauge gets no lock.** It is not refused, and it
 is not pretended at: the journal records `"lock": "absent"` and the summary
@@ -239,7 +276,50 @@ call it behaviour.
 
 ---
 
-## 7. Scheduling
+## 7. Promotion
+
+Both other profiles check **one task**. The thing that actually breaks is the
+combination: five tasks green on their own, and together a broken integration, a
+failing build, a contract that no longer matches. `agent/staging` is where that
+is checked.
+
+It is optional — declare the branch and the profile, or neither.
+
+### Promotion is a command, not a step of a run
+
+`detent promote` is explicit, and never automatic after a task. A batch gauge
+that runs after every task is merely a slow `merge` profile, which already
+exists; the value is in checking what a batch does that its tasks did not.
+
+The gate: clean tree · no active run · `agent/staging` exists · at least one
+task landed on `agent/dev` since the last promotion.
+
+| | |
+|---|---|
+| green | `agent/dev` merges into `agent/staging`, and the human gate becomes `agent/staging → dev` |
+| red | **nothing is promoted and nothing is reverted** — the work stays on `agent/dev`, the failed stage goes to the journal |
+| conflict | `merge --abort`, escalate — as everywhere |
+| interrupted | `detent recover` returns the repository to `agent/dev` with a clean tree |
+
+**Nothing is bisected.** A red batch means the combination broke; which task is
+at fault detent does not know and does not guess. Bisecting a batch is a
+different product, and a confident wrong answer here costs more than no answer
+(§15).
+
+### What promotion is for: measuring the blind spot
+
+A promotion is its own line in the journal, so `detent summary` can report the
+number this section exists to produce: **how often a batch came out red after
+every task in it was green.** That is the per-task gauge's blind spot, measured
+— the same kind of number as `rejected`, and the reason staging is a mechanism
+here rather than one more branch.
+
+A side effect worth having: the branch a human reviews has passed more checks
+than any single task in it ever did.
+
+---
+
+## 8. Scheduling
 
 Two rules, and no others:
 
@@ -257,7 +337,7 @@ configured below it.
 
 ---
 
-## 8. The acceptance pass
+## 9. The acceptance pass
 
 One model implements, a different model reads the diff against the acceptance
 criteria. Different by design, not for economy: a model tends to approve its own
@@ -270,7 +350,7 @@ theatre.
 
 ---
 
-## 9. Commits
+## 10. Commits
 
 **Green and accepted** — a real commit, and the branch merges:
 
@@ -299,14 +379,25 @@ Co-Authored-By: ...
 Parking the work as a commit rather than leaving a dirty tree matters: a dirty
 tree would fail the gate and block that repository for every task behind it.
 
+**A promotion** — a merge commit on `agent/staging` that names what it carries:
+
+```
+promote: 5 tasks from agent/dev
+
+Tasks: 0042, 0043, 0045, 0046, 0048
+Gauge: e2e ✓ (promote profile, 14m22s)
+
+Co-Authored-By: ...
+```
+
 A side effect worth having — **git becomes a second journal.** If
-`runs/journal.jsonl` is ever lost, the history of `agent-dev` and the surviving
-`agent-task/*` branches still say which stage failed, how many attempts there
-were, and what the acceptance pass concluded.
+`runs/journal.jsonl` is ever lost, the history under `refs/heads/agent/` still
+says which stage failed, how many attempts there were, what the acceptance pass
+concluded, and which tasks went into which batch.
 
 ---
 
-## 10. On disk
+## 11. On disk
 
 ```
 <product>/
@@ -331,7 +422,11 @@ record are different things and belong in different places.
 {
   "version": 1,
   "product": { "name": "acme", "summary": "freight marketplace" },
-  "branches": { "integration": "agent-dev", "task": "agent-task/{id}-{slug}" },
+  "branches": {
+    "integration": "agent/dev",
+    "staging":     "agent/staging",
+    "task":        "agent/task-{id}-{slug}"
+  },
   "concurrency": 3,
   "attempts": 3,
   "models": { "implement": "claude-sonnet-5", "accept": "claude-opus-5" },
@@ -342,7 +437,7 @@ record are different things and belong in different places.
       "role": "REST API backend, owns the database schema",
       "stack": ["node", "nestjs", "postgres"],
       "compare": "dev",
-      "gauge": { "exit": [], "merge": [] },
+      "gauge": { "exit": [], "merge": [], "promote": [] },
       "models": { "implement": "claude-opus-5" },
       "neverCommit": ["shared-docs"]
     }
@@ -354,12 +449,19 @@ record are different things and belong in different places.
 }
 ```
 
-Three things about this shape are deliberate:
+Four things about this shape are deliberate:
 
-- **There is no field for the human branch.** The format cannot express one,
-  so no amount of configuration can point detent at `dev`. `compare` is the
-  single exception and is read-only: it names the branch `agent-dev` is reported
+- **No field can name a human branch.** Every value in `branches` is validated
+  against `^agent/` on load and by `doctor`. With two configurable branches the
+  guarantee stops being "there is only one field to get wrong" and becomes a
+  check, which is the stronger form of the same promise. `compare` is the single
+  exception and is read-only: it names the branch `agent/dev` is reported
   against, and nothing else is ever done with it.
+- **The schema is strict: an unknown key is an error.** It catches a typo
+  instead of silently ignoring it, and it is what lets a field be specified here
+  before it is implemented — until the code honours it, the loader refuses it by
+  name and points at the version where it arrives. A field that exists and does
+  nothing is worse than a field that does not exist.
 - **A repository overrides a *role*, never "the model"** — otherwise you could
   not say "expensive implementation in the backend, one reviewer everywhere".
 - **Every edge carries its `source`.** Edges established by the deterministic
@@ -370,6 +472,7 @@ Three things about this shape are deliberate:
 
 ```json
 {
+  "kind": "task",
   "task": "0042",
   "slug": "wallet-endpoint",
   "repo": "acme-api",
@@ -384,11 +487,16 @@ Three things about this shape are deliberate:
     "accept": { "requested": "claude-sonnet-5", "actual": "claude-sonnet-5" }
   },
   "cost": { "usd": 0.41 },
-  "branch": "agent-task/0042-wallet-endpoint",
+  "branch": "agent/task-0042-wallet-endpoint",
   "commit": "a1b2c3d",
   "merged": true
 }
 ```
+
+**`kind` is on every line, never defaulted.** A promotion is a run too, and a
+`summary` that counted promotions as task runs would quietly corrupt the pass
+rate — the same class of silent corruption the `requested`/`actual` pair below
+exists to prevent.
 
 The model that actually ran is recorded alongside the one requested, because a
 silent substitution would quietly corrupt every comparison built on this file.
@@ -396,19 +504,38 @@ silent substitution would quietly corrupt every comparison built on this file.
 Cost is reported **per pass**, never per run: a cheap model that needs three
 attempts is not cheap.
 
+A promotion line is the same shape with `"kind": "promote"`, no `task`/`slug`,
+and the batch it carried:
+
+```json
+{
+  "kind": "promote",
+  "repo": "acme-api",
+  "started": "2026-10-07T18:40:11Z",
+  "finished": "2026-10-07T18:54:33Z",
+  "outcome": "passed",
+  "tasks": ["0042", "0043", "0045"],
+  "gauge": { "profile": "promote", "failedStage": null },
+  "branch": "agent/staging",
+  "commit": "f9e8d7c",
+  "merged": true
+}
+```
+
 ---
 
-## 11. Commands
+## 12. Commands
 
 ```
 detent doctor       whether this product is in the shape detent expects
 detent init         scan the workspace and write product.json
 detent plan         discuss a task with an agent; it writes the task files
 detent run          work the queue
+detent promote      merge agent/dev into agent/staging behind the batch gauge
 detent summary      pass rate, iterations, cost per pass
 detent dashboard    a page that watches this product
 detent recover      return repositories an interrupted run left behind
-detent prune        delete agent-task branches already merged into agent-dev
+detent prune        delete agent/task-* branches already merged into agent/dev
 ```
 
 `init` runs in three passes, in this order and for a reason:
@@ -429,6 +556,15 @@ or the first such person leaves.
 Re-running `init` produces a **diff to review**, not a silent overwrite. The
 machine proposes, a person accepts.
 
+### Three things `doctor` checks beyond the nine conditions
+
+- **no branch named exactly `agent`** — it makes the whole namespace
+  uncreatable, and the error arrives mid-run looking like something else (§2)
+- **every value in `branches` matches `^agent/`** — the guarantee that no
+  configuration can aim detent at a human branch
+- **`gauge.promote` declared with no `branches.staging`** — a declared check
+  that nothing ever runs is the same invented green as a missing gauge (§6)
+
 ### The dashboard is read-only while a run is active
 
 The queue cannot be edited during a run: detent has already read it and moves
@@ -437,9 +573,12 @@ arrives later disguised as a mystery.
 
 ---
 
-## 12. Rules that are not configurable
+## 13. Rules that are not configurable
 
-- **Never push.** detent merges into a local `agent-dev` and stops. Someone's CI
+- **Never write a ref outside `refs/heads/agent/`.** One predicate, checked on
+  every write path, rather than a prefix convention remembered in several
+  places.
+- **Never push.** detent merges into a local `agent/dev` and stops. Someone's CI
   deploys from the branch you did not expect.
 - **Never commit a submodule pointer** (`neverCommit`). Moving a pointer without
   pushing the submodule leaves everyone else with a reference to nowhere.
@@ -450,7 +589,7 @@ arrives later disguised as a mystery.
 
 ---
 
-## 13. Build order
+## 14. Build order
 
 By what the rest depends on, not by what is most interesting.
 
@@ -458,20 +597,27 @@ By what the rest depends on, not by what is most interesting.
 2. the gauge and the lock — *useful on their own, before any run exists*
 3. the gate, `state.json`, unconditional return, `recover` — **tests live here**
 4. one task from file to commit on a task branch, sequentially
-5. merge into `agent-dev`, with abort on conflict
+5. merge into `agent/dev`, with abort on conflict
 6. journal + `summary` — *numbers start existing*
 7. `doctor`
 8. `dashboard` — reading what already exists
 9. the scheduler: repository occupancy and barriers
-10. the acceptance pass
-11. `init` pass 2 — the model pass and its schema
-12. `plan`
+10. `promote`: `agent/staging`, the batch profile, the promotion journal line —
+    and `doctor` gains its staging checks here
+11. the acceptance pass
+12. `init` pass 2 — the model pass and its schema
+13. `plan`
 
 End to end after 6. Worth showing after 8.
 
+Until step 10, `branches.staging` and `gauge.promote` are **refused by the
+loader by name**, with the version they arrive in. They are specified (§7)
+before they are accepted, and accepted before they are advertised — see
+`PROGRESS.md` for where the build actually is.
+
 ---
 
-## 14. Deliberately not here
+## 15. Deliberately not here
 
 Named so they read as decisions rather than gaps.
 
@@ -481,8 +627,13 @@ Named so they read as decisions rather than gaps.
   environment. The price buys parallelism inside a repository that a product of
   eight repositories does not need.
 - **Zones.** They only make sense with worktrees.
+- **Bisecting a red batch.** When a promotion fails, the combination is at
+  fault and the individual tasks were all green. Finding the culprit means
+  replaying subsets of a batch, which is a build system, not a dispatcher. The
+  journal says which batch went red and which tasks were in it; a person reads
+  it (§7).
 - **Multiple people on one workspace.** Two dispatchers merging into one
-  `agent-dev` need a lock and per-person integration branches. Later, honestly,
+  `agent/dev` need a lock and per-person integration branches. Later, honestly,
   rather than half-done now.
 - **Windows.** WSL or neither.
 - **Anything that is not git.**

@@ -34,19 +34,29 @@ judgement may only raise a doubt and send the task to a person. Otherwise
 ## The line agents do not cross
 
 ```
-        human                      │              agents
-  ─────────────────────────────────┼─────────────────────────────────
-  dev, feature/*, hotfix/*         │   agent-dev
-                                   │   agent-task/<id>
-
-  merge dev → agent-dev  ──────────┼──→  here is my work, take it into account
-  merge agent-dev → dev  ←─────────┼───  I accept yours
+       human                   │                     agents
+  ─────────────────────────────┼──────────────────────────────────────────
+  dev → staging → main         │   agent/task-<id>-<slug>
+  feature/*, hotfix/*          │         │ merge, when the gauge is green
+                               │         ▼
+                               │   agent/dev
+                               │         │ promote, when the batch is green
+                               │         ▼   (optional)
+                               │   agent/staging
+                               │
+  dev → agent/dev  ────────────┼──→  here is my work, take it into account
+  agent/staging → dev  ←───────┼───  I accept yours
 ```
 
-detent reads and writes `agent-dev` and `agent-task/*` and nothing else. Both
-gates between the territories are human operations, in both directions. It
-refuses to start on a dirty tree, and never creates a commit on a branch
-without the `agent-` prefix.
+detent reads and writes refs under `refs/heads/agent/` and nothing else — one
+namespace, one predicate, one glob to audit it with. Both gates between the
+territories are human operations, in both directions. It refuses to start on a
+dirty tree, and never moves a ref outside its own namespace.
+
+`agent/staging` is optional and exists for one reason: the per-task gauge checks
+a task, and what actually breaks is the combination. The batch gauge runs there,
+and how often a batch came out red after every task in it was green is a number
+detent reports.
 
 ## This product is opinionated
 
@@ -55,8 +65,10 @@ to everything:
 
 1. git, not a shallow clone
 2. the product's repositories sit side by side in one folder — one per unit of ownership
-3. each repository has one human branch (any name, declared)
-4. the gauge is declared as stages: a name and a command, runnable locally, in seconds
+3. each repository names one human branch to be compared against (any name) — a
+   release train behind it is not detent's business
+4. the gauge is declared as stages: a name and a command, runnable locally — the
+   per-attempt profile in seconds
 5. a clean tree when a run starts
 6. an agent CLI installed and authenticated
 7. the integration branch is not deployed; pushing is done by hand
