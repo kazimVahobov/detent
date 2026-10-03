@@ -23,15 +23,23 @@ test('bare invocation prints usage and succeeds', () => {
 
 test('every command is listed in usage', () => {
   const { out } = run(['--help'])
-  for (const command of ['doctor', 'init', 'plan', 'run', 'summary', 'dashboard', 'recover', 'prune']) {
+  const commands = ['doctor', 'init', 'plan', 'run', 'promote', 'summary', 'dashboard', 'recover', 'prune']
+  for (const command of commands) {
     assert.match(out, new RegExp(`\\b${command}\\b`), `usage is missing "${command}"`)
   }
 })
 
 test('usage states the branch boundary', () => {
   const { out } = run(['--help'])
-  assert.match(out, /agent-task\/<id>/)
-  assert.match(out, /agent-dev/)
+  assert.match(out, /agent\/task-<id>/)
+  assert.match(out, /agent\/dev/)
+})
+
+test('nothing in usage names a branch outside the agent namespace', () => {
+  const { out } = run(['--help'])
+  // Every branch detent writes lives under refs/heads/agent/ — a stale "agent-"
+  // prefix anywhere in the interface is the first sign that invariant slipped.
+  assert.doesNotMatch(out, /agent-/)
 })
 
 test('--version prints a bare version', () => {
