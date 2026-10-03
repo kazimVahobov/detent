@@ -1,0 +1,46 @@
+name: release
+
+# A tag is the only way anything reaches npm. Nothing is published by hand, so
+# what is on the registry can always be traced to a commit in this repository.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # provenance attestation is signed with this
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # The gauge gates the release exactly as it gates a merge. npm would run
+      # it again through prepublishOnly; having it as its own step means a red
+      # gauge fails before any credential is touched.
+      - run: npm run verify
+
+      - name: the tag and package.json must agree
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p 'require("./package.json").version')"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag says $tag, package.json says $pkg — refusing to publish" >&2
+            exit 1
+          fi
+          # A prerelease (0.1.0-rc.1, cut from staging) must never become the
+          # version a plain `npm install` resolves to.
+          case "$pkg" in
+            *-*) echo "dist_tag=next" >> "$GITHUB_ENV" ;;
+            *) echo "dist_tag=latest" >> "$GITHUB_ENV" ;;
+          esac
+
+      - run: npm publish --provenance --tag "$dist_tag"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

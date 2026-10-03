@@ -2,7 +2,7 @@ name: verify
 
 on:
   push:
-    branches: [main, agent-dev]
+    branches: [main, staging, dev, 'agent/**']
   pull_request:
 
 jobs:
