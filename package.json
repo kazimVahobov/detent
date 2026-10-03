@@ -21,13 +21,13 @@
     "verification",
     "polyrepo"
   ],
-  "author": "Kozimjon Vakhobov (https://github.com/kazimVahobov)",
+  "author": "Kozimjon Vakhobov (https://github.com/kazimVakhobov)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kazimVahobov/detent.git"
+    "url": "git+https://github.com/kazimVakhobov/detent.git"
   },
-  "homepage": "https://github.com/kazimVahobov/detent#readme",
-  "bugs": "https://github.com/kazimVahobov/detent/issues",
+  "homepage": "https://github.com/kazimVakhobov/detent#readme",
+  "bugs": "https://github.com/kazimVakhobov/detent/issues",
   "license": "MIT",
   "publishConfig": {
     "access": "public"

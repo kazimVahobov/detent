@@ -25,7 +25,7 @@ npm error 403 Package name too similar to existing packages dedent, dotenv, rede
 
 Publish as **`@kazimvakhobov/detent`**, with `publishConfig.access: "public"`.
 
-The repository stays `kazimVahobov/detent`, the product is called detent in
+The repository stays `kazimVakhobov/detent`, the product is called detent in
 every text, and the command remains `detent`.
 
 ## Consequences
