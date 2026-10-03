@@ -21,4 +21,5 @@
 ## Gauge
 
 - [ ] `npm run verify` green locally
-- [ ] nothing outside `refs/heads/agent/` was touched by a tool rather than by me
+- [ ] this comes from the side its author belongs to: `agent/*` if an agent
+      wrote it, `feature/*` if I did

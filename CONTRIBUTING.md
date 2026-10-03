@@ -8,9 +8,8 @@ agent cannot be developed by committing to `main` on good judgement alone.
 ## Branches
 
 ```
-feature/<slug>  →  dev  →  staging  →  main          the human side
-                    │
-                    └──→  agent/dev  ──→  (PR back into dev)
+agent/task-*  →  agent/dev  ──PR──→  dev  →  staging  →  main
+feature/*  ──────────────────PR──→   dev
 ```
 
 | Branch | What it is |
@@ -18,8 +17,29 @@ feature/<slug>  →  dev  →  staging  →  main          the human side
 | `main` | released. Tags here publish to npm under `latest` |
 | `staging` | release candidate. Tags here publish a prerelease under `next` |
 | `dev` | human integration, and the branch `agent/dev` is compared against |
-| `feature/*`, `hotfix/*` | one change, off `dev` |
-| `agent/dev`, `agent/task-*` | the agent namespace. See [ADR 0001](docs/adr/0001-agent-branch-namespace.md) |
+| `feature/*`, `hotfix/*` | a change **you wrote yourself**, off `dev` |
+| `agent/dev`, `agent/task-*` | everything **an agent** produced. See [ADR 0001](docs/adr/0001-agent-branch-namespace.md) |
+
+### Which side a change belongs to
+
+An agent's output goes into the agent namespace **whether a dispatcher produced
+it or a person sat through the session watching.** The reason the boundary
+exists — work written by a model gets accepted by a person before it mixes with
+their own history — does not weaken because someone was present while it was
+written. A session is not a different kind of authorship, only a different kind
+of supervision.
+
+So the work of a session lands on `agent/dev` and reaches `dev` through a pull
+request. `feature/*` is for the changes you type.
+
+**Until the queue exists (build order step 1), session work goes straight onto
+`agent/dev`** rather than through `agent/task-<id>-<slug>`. There is no task
+file to take an id from: detent's queue lives in a product folder
+([ADR 0005](docs/adr/0005-queue-in-the-product-folder.md)) and this repository
+is not one. A numbered branch with an invented number is the decorative green
+this project refuses, and one session at a time already provides the isolation
+the task branch would. After step 1, session work gets a real task file and a
+real number.
 
 Three human stages rather than two because the package is published: `staging`
 is the branch where a version is a release candidate under the `next` dist-tag,
@@ -29,7 +49,7 @@ which is a stage with an observable output rather than a ceremony.
 a green gauge.** Self-merging is expected — the pull request is the record and
 the place the gauge reports, not a ritual of asking permission.
 
-**`agent/dev` is never pushed by the tool** and is merged back by a person. That
+**`agent/dev` is never pushed by detent** and is merged back by a person. That
 boundary is the product; a shortcut here would be a shortcut in the thing being
 sold.
 
