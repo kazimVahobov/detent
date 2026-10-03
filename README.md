@@ -65,6 +65,17 @@ to everything:
 
 `detent doctor` checks all nine and tells you what to change.
 
+## Design
+
+[DESIGN.md](DESIGN.md) is the specification the code is being written against:
+the branch boundary and the invariant that guards it, the task lifecycle with
+every outcome it can have, the shape of `product.json` and of a journal line,
+what the gauge is and why it has two profiles, and what is deliberately left
+out.
+
+It is written before the code rather than after it, which is also how detent
+expects tasks to be written.
+
 ## License
 
 MIT
