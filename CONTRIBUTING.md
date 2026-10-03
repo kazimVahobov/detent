@@ -112,9 +112,23 @@ names no proof, so this is not a convention to remember.
 
 ## Releases
 
+A version bump is a change like any other; the tag is only a pointer. Those are
+two separate steps on purpose — `npm version` on its own commits into whatever
+branch you are standing in, which for a release is `main`, straight past the
+rule above.
+
+**Bump where the work is,** as part of an ordinary pull request:
+
 ```
-npm version <x.y.z>          # or <x.y.z>-rc.N on staging
-git push --follow-tags
+npm version 0.0.2 --no-git-tag-version
+git commit -am "build: 0.0.2"
+```
+
+**Tag once it has arrived,** after the bump has travelled `dev → staging → main`:
+
+```
+git switch main && git pull
+git tag v0.0.2 && git push origin v0.0.2
 ```
 
 The tag triggers `.github/workflows/release.yml`, which refuses to publish
@@ -122,6 +136,10 @@ unless the tag matches the version in `package.json`, derives the dist-tag from
 the version (a prerelease goes to `next`, everything else to `latest`), and
 publishes with `--provenance` so the chain from package to commit to workflow is
 verifiable rather than asserted.
+
+A release candidate is the same thing with a prerelease version
+(`0.1.0-rc.1`), tagged on `staging` rather than `main`. The workflow routes it
+to `next` by itself, so a plain `npm install` can never resolve to it.
 
 Nothing is published by hand. See
 [ADR 0006](docs/adr/0006-zero-dependencies-node-22.md) for why the published
