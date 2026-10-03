@@ -1,0 +1,36 @@
+{
+  "name": "detent",
+  "version": "0.0.1",
+  "description": "Autonomy bounded by a machine-checkable gauge, and measured.",
+  "type": "module",
+  "bin": {
+    "detent": "cli.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "cli.mjs",
+    "core",
+    "scripts",
+    "templates"
+  ],
+  "keywords": [
+    "coding-agents",
+    "definition-of-done",
+    "verification",
+    "polyrepo"
+  ],
+  "author": "Kozimjon Vakhobov (https://github.com/kazimVahobov)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kazimVahobov/detent.git"
+  },
+  "homepage": "https://github.com/kazimVahobov/detent#readme",
+  "bugs": "https://github.com/kazimVahobov/detent/issues",
+  "license": "MIT",
+  "scripts": {
+    "verify": "node scripts/check-no-deps.mjs && node --test",
+    "test": "node --test"
+  }
+}

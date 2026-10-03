@@ -1,0 +1,70 @@
+# detent
+
+**Autonomy bounded by a machine-checkable gauge, and measured.**
+
+A detent is the catch that holds a mechanism in a defined position until it is
+deliberately released. Here it is released by a green gauge — the project's own
+checks — and by nothing else.
+
+> **Status: 0.0.1, the name and nothing behind it.** Published to hold the name
+> while the tool is built. Do not install it yet.
+
+## What it will do
+
+Runs coding agents against a queue of tasks, refuses to let them finish while
+the project's own checks are red, and writes down what every run cost in
+attempts, time and money.
+
+The constraints are in the code, not in the prompt.
+
+**When is the agent allowed to stop?** Not when it says it is done — when the
+project's checks pass. The gauge runs on the agent's way out; red means it does
+not get to leave, and it is handed the failure text to work from. Three
+identical failures in a row is an escalation, not a fourth attempt.
+
+**Was it worth it?** Every run is a line in a journal: which model, how many
+times it hit red, which stage it died on, how long, how much. That turns "which
+model should run this repository" from an opinion into a number.
+
+**Where the boundary is.** The acceptance pass runs on a second model and can
+*demote, never approve*. Green is granted by machine checks; a model's
+judgement may only raise a doubt and send the task to a person. Otherwise
+"proven" quietly becomes "a second model agreed".
+
+## The line agents do not cross
+
+```
+        human                      │              agents
+  ─────────────────────────────────┼─────────────────────────────────
+  dev, feature/*, hotfix/*         │   agent-dev
+                                   │   agent-task/<id>
+
+  merge dev → agent-dev  ──────────┼──→  here is my work, take it into account
+  merge agent-dev → dev  ←─────────┼───  I accept yours
+```
+
+detent reads and writes `agent-dev` and `agent-task/*` and nothing else. Both
+gates between the territories are human operations, in both directions. It
+refuses to start on a dirty tree, and never creates a commit on a branch
+without the `agent-` prefix.
+
+## This product is opinionated
+
+It expects a product shaped a particular way, and says so instead of adapting
+to everything:
+
+1. git, not a shallow clone
+2. the product's repositories sit side by side in one folder — one per unit of ownership
+3. each repository has one human branch (any name, declared)
+4. the gauge is declared as stages: a name and a command, runnable locally, in seconds
+5. a clean tree when a run starts
+6. an agent CLI installed and authenticated
+7. the integration branch is not deployed; pushing is done by hand
+8. one person per workspace
+9. macOS or Linux, Node 22
+
+`detent doctor` checks all nine and tells you what to change.
+
+## License
+
+MIT
