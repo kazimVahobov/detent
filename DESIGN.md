@@ -599,7 +599,9 @@ By what the rest depends on, not by what is most interesting.
 4. one task from file to commit on a task branch, sequentially
 5. merge into `agent/dev`, with abort on conflict
 6. journal + `summary` — *numbers start existing*
-7. `doctor`
+7. `doctor` and `init` pass 1 — *the deterministic scan is the same code in
+   both: one checks the nine conditions with it, the other writes
+   `product.json` from it*
 8. `dashboard` — reading what already exists
 9. the scheduler: repository occupancy and barriers
 10. `promote`: `agent/staging`, the batch profile, the promotion journal line —
