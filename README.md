@@ -88,6 +88,23 @@ out.
 It is written before the code rather than after it, which is also how detent
 expects tasks to be written.
 
+## How this repository is built
+
+The method the tool enforces, applied to the tool. Nothing reaches `dev`,
+`staging` or `main` except through a pull request with a green gauge; decisions
+are recorded with the alternatives they displaced; and progress is a table the
+gauge refuses to let lie.
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — branches, commit format, how a release is cut
+- [docs/adr/](docs/adr/) — eight decisions, each with what it rejected and what that cost
+- [PROGRESS.md](PROGRESS.md) — where the build actually is, against the build order
+- [CHANGELOG.md](CHANGELOG.md)
+
+detent does not build itself yet: until there is a journal there is nothing to
+dispatch with, so the branch model and the commit format are followed by hand,
+under the names the tool will use. What changes at self-hosting is who types the
+commands.
+
 ## License
 
 MIT
