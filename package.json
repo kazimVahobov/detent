@@ -1,5 +1,5 @@
 {
-  "name": "detent",
+  "name": "@kazimvakhobov/detent",
   "version": "0.0.1",
   "description": "Autonomy bounded by a machine-checkable gauge, and measured.",
   "type": "module",
@@ -29,6 +29,9 @@
   "homepage": "https://github.com/kazimVahobov/detent#readme",
   "bugs": "https://github.com/kazimVahobov/detent/issues",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "verify": "node scripts/check-no-deps.mjs && node --test",
     "test": "node --test",
