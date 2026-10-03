@@ -4,7 +4,10 @@ Notable changes, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions mean what
 [`PROGRESS.md`](PROGRESS.md) says they mean.
 
-## Unreleased
+## 0.0.2 — 2026-10-03
+
+The first release cut by the workflow rather than by hand: tagged, checked
+against `package.json`, published with provenance.
 
 ### Added
 
@@ -26,12 +29,21 @@ Notable changes, newest first. The format follows
 
 ### Changed
 
+- `detent promote` is listed in `detent --help`, and exits 70 like every other
+  command that does not exist yet. This is the only change to the published
+  artifact; the rest of the release is the reasoning behind it.
+- The package metadata spells the GitHub account `kazimVakhobov` —
+  `repository`, `homepage`, `bugs` and `author` previously resolved only
+  through a rename redirect.
 - Condition 3 loosened: a repository names *one* human branch to be compared
   against, and a release train behind it is not detent's business.
 - `product.json` validates every branch value against `^agent/`, and the schema
   is strict — an unknown key is an error rather than a silent no-op.
 - Journal lines carry `kind`, never defaulted, so a promotion can never be
   counted as a task run.
+
+Still nothing implemented — [`PROGRESS.md`](PROGRESS.md) says where the build
+actually is.
 
 ## 0.0.1 — 2026-10-03
 
