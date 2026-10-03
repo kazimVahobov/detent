@@ -31,6 +31,7 @@
   "license": "MIT",
   "scripts": {
     "verify": "node scripts/check-no-deps.mjs && node --test",
-    "test": "node --test"
+    "test": "node --test",
+    "prepublishOnly": "npm run verify"
   }
 }
