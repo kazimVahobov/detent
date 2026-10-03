@@ -16,10 +16,11 @@ const COMMANDS = {
   init: 'scan the workspace and write product.json',
   plan: 'discuss a task with an agent; it writes the task files',
   run: 'work the queue',
+  promote: 'merge agent/dev into agent/staging behind the batch gauge',
   summary: 'pass rate, iterations, cost per pass',
   dashboard: 'a page that watches this product',
   recover: 'return repositories an interrupted run left behind',
-  prune: 'delete agent-task branches already merged into agent-dev',
+  prune: 'delete agent/task-* branches already merged into agent/dev',
 }
 
 function usage() {
@@ -31,8 +32,8 @@ function usage() {
     '',
     ...Object.entries(COMMANDS).map(([name, help]) => `  ${name.padEnd(width)}  ${help}`),
     '',
-    'The agent never touches a human branch. It works on agent-task/<id> and',
-    'integrates into agent-dev; moving work across that line is yours.',
+    'The agent never touches a human branch. It works on agent/task-<id> and',
+    'integrates into agent/dev; moving work across that line is yours.',
     '',
   ].join('\n')
 }
