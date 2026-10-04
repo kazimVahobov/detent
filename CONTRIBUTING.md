@@ -137,6 +137,19 @@ the version (a prerelease goes to `next`, everything else to `latest`), and
 publishes with `--provenance` so the chain from package to commit to workflow is
 verifiable rather than asserted.
 
+**Bring the merge commits back down.** A pull request puts its merge commit on
+the *target*, so after a release `staging` and `dev` sit a commit or two behind
+`main` with identical contents. Nothing breaks, but to anyone browsing the
+repository it reads as an abandoned `dev`:
+
+```
+git switch staging && git merge main && git push
+git switch dev && git merge staging && git push
+```
+
+The last hop, `dev → agent/dev`, is the human gate. It is crossed when you
+decide the agents should see your work, not as a step of a release.
+
 A release candidate is the same thing with a prerelease version
 (`0.1.0-rc.1`), tagged on `staging` rather than `main`. The workflow routes it
 to `next` by itself, so a plain `npm install` can never resolve to it.

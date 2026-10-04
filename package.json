@@ -12,7 +12,6 @@
   "files": [
     "cli.mjs",
     "core",
-    "scripts",
     "templates"
   ],
   "keywords": [
