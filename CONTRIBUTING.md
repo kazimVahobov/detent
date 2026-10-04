@@ -137,6 +137,21 @@ the version (a prerelease goes to `next`, everything else to `latest`), and
 publishes with `--provenance` so the chain from package to commit to workflow is
 verifiable rather than asserted.
 
+**There is no publish token.** npm trusts this repository and this workflow file
+by name — configured once under Trusted Publisher on the package's npm settings
+page — and exchanges the run's OIDC identity for a short-lived credential. The
+repository stores no publishing secret: nothing to rotate, nothing to leak, and
+nothing that stops working when npm retires the 2FA-bypassing tokens it is
+retiring.
+
+Two consequences worth knowing before a release goes red:
+
+- **The workflow that runs is the one at the tagged commit.** Changing
+  `release.yml` means the change must reach `main` before the tag is placed, or
+  moved if it is already there.
+- **The trusted publisher is matched by workflow filename.** Renaming
+  `release.yml` breaks publishing until the npm side is updated to match.
+
 **Bring the merge commits back down.** A pull request puts its merge commit on
 the *target*, so after a release `staging` and `dev` sit a commit or two behind
 `main` with identical contents. Nothing breaks, but to anyone browsing the

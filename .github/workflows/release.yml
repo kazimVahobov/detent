@@ -9,7 +9,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # provenance attestation is signed with this
+  id-token: write # trusted publishing and the provenance signature both use this
 
 jobs:
   publish:
@@ -19,11 +19,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
+      # No registry-url on purpose: it writes an .npmrc expecting a token in the
+      # environment, and there is no token to put there.
+
+      # Trusted publishing authenticates over OIDC, which needs npm 11.5.1 or
+      # newer; Node 22 ships 10.x. Pinned to the major rather than @latest —
+      # the step that performs the publish should not change underneath a
+      # release nobody is watching.
+      - run: npm install -g npm@^11.5.1
 
       # The gauge gates the release exactly as it gates a merge. npm would run
       # it again through prepublishOnly; having it as its own step means a red
-      # gauge fails before any credential is touched.
+      # gauge fails before anything is signed.
       - run: npm run verify
 
       - name: the tag and package.json must agree
@@ -41,6 +48,8 @@ jobs:
             *) echo "dist_tag=latest" >> "$GITHUB_ENV" ;;
           esac
 
+      # No credential: the registry trusts this repository and this workflow
+      # file by name, and npm exchanges the run's OIDC identity for a
+      # short-lived one. Nothing long-lived is stored, so there is nothing to
+      # rotate and nothing to leak.
       - run: npm publish --provenance --tag "$dist_tag"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

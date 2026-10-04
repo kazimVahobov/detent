@@ -24,8 +24,9 @@ against `package.json`, published with provenance.
   cannot be marked done without a proof that exists.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): branches, commit format, when a change
   needs an ADR, how a release is cut.
-- A release workflow that publishes from a tag with provenance, and refuses a
-  tag that disagrees with `package.json`.
+- A release workflow that publishes from a tag with provenance and **no stored
+  credential** — npm trusts the repository and the workflow file over OIDC — and
+  refuses a tag that disagrees with `package.json`.
 
 ### Changed
 
