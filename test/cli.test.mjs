@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -59,4 +59,11 @@ test('a known but unbuilt command says so instead of pretending', () => {
   const { code, out } = run(['promote'])
   assert.equal(code, 70)
   assert.match(out, /not implemented yet/)
+})
+
+test('a reader that closes early ends the command quietly', () => {
+  // The reader closes its end at once, so every write meets a closed pipe.
+  const result = spawnSync('sh', ['-c', `"${process.execPath}" "${cli}" --help | (exec 0<&-; sleep 0.3)`], { encoding: 'utf8' })
+  assert.equal(result.stderr, '')
+  assert.equal(result.status, 0)
 })
