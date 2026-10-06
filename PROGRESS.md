@@ -22,7 +22,7 @@ This file is a claim about what exists, so the claim is checked:
 | 3 | the gate, `state.json`, unconditional return, `recover` | done | `test/workspace.test.mjs` | 2026-10-06 |
 | 4 | one task from file to commit on a task branch, sequentially | done | `test/run.test.mjs`, `test/agents.test.mjs` | 2026-10-06 |
 | 5 | merge into `agent/dev`, with abort on conflict | done | `test/run.test.mjs` | 2026-10-06 |
-| 6 | journal + `summary` | todo | — | — |
+| 6 | journal + `summary` | done | `test/journal.test.mjs`, `test/run.test.mjs` | 2026-10-06 |
 | 7 | `doctor` and `init` pass 1 — the deterministic scan they share | todo | — | — |
 | 8 | `dashboard` — reading what already exists | todo | — | — |
 | 9 | the scheduler: repository occupancy and barriers | todo | — | — |

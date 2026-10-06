@@ -28,6 +28,8 @@ Notable changes, newest first. The format follows
 
 - `detent gauge [repo…] [--profile exit|merge]` runs a repository's gauge by
   hand, outside any run.
+- A notify command that does not read its stdin is judged by its exit code, not
+  by the broken pipe it leaves behind.
 
 - Claude Code, Codex and Gemini CLI run behind one call, `core/agents.mjs`,
   each tested against the output its CLI really prints
@@ -44,6 +46,11 @@ Notable changes, newest first. The format follows
   on a detached HEAD and held behind the `merge` profile run on the merged
   tree, so `agent/dev` never sees a red merge. A conflict is aborted, named and
   paused, never resolved.
+
+- Build step 6: every run appends one line to `runs/journal.jsonl`, and
+  `detent summary` reports pass rate, attempts per run and cost per pass, per
+  repository and per agent and model. A repository with no gauge shows a dash,
+  not a pass rate.
 
 ### Changed
 

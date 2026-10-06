@@ -21,7 +21,14 @@ export function notify(product, { task, repo, outcome, branch, message }) {
   if (product.notify) {
     const result = spawnSync('sh', ['-c', product.notify], { cwd: product.dir, env, input: message, encoding: 'utf8', timeout: 30_000 })
     if (result.status === 0) return { sent: true, via: 'command' }
-    const why = result.error?.message ?? (result.signal ? `killed by ${result.signal}` : `exit code ${result.status}: ${result.stderr.trim()}`)
+    // The exit status first: a command that never reads stdin makes the write
+    // fail with EPIPE, which is noise beside what the command itself said.
+    const why =
+      result.status !== null
+        ? `exit code ${result.status}: ${result.stderr.trim()}`
+        : result.signal
+          ? `killed by ${result.signal}`
+          : result.error.message
     return { sent: false, via: 'command', error: why }
   }
 

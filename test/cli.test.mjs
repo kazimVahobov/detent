@@ -56,7 +56,7 @@ test('an unknown command fails with usage, not a stack trace', () => {
 })
 
 test('a known but unbuilt command says so instead of pretending', () => {
-  const { code, out } = run(['summary'])
+  const { code, out } = run(['dashboard'])
   assert.equal(code, 70)
   assert.match(out, /not implemented yet/)
 })

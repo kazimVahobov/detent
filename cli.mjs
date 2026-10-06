@@ -12,6 +12,7 @@ import { ConfigError, loadProduct } from './core/product.mjs'
 import * as gauge from './core/commands/gauge.mjs'
 import * as recover from './core/commands/recover.mjs'
 import * as runCommand from './core/commands/run.mjs'
+import * as summary from './core/commands/summary.mjs'
 import { UsageError } from './core/commands/usage.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -31,7 +32,7 @@ const COMMANDS = {
 }
 
 // Commands that exist, each a module: { options, run(product, positionals, values) }.
-const BUILT = { gauge, recover, run: runCommand }
+const BUILT = { gauge, recover, run: runCommand, summary }
 
 function usage() {
   const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length))

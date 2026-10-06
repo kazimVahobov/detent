@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { snapshotRefs } from '../core/git.mjs'
 import { readQueue } from '../core/task.mjs'
+import { readJournal } from '../core/journal.mjs'
 import { runTask } from '../core/run.mjs'
 import { assertInvariant, gitProduct, sh, show } from './support/product.mjs'
 
@@ -372,4 +373,18 @@ test('merge hooks do not run', async () => {
   }
   const result = await runTask(s.product, s.repo, s.task, { invoke: agent(write('ok')).invoke, notify: notifier().notify })
   assert.equal(result.outcome, 'passed')
+})
+
+test('every run leaves exactly one journal line, skipped runs included', async () => {
+  const s = setup()
+  writeFileSync(join(s.repoDir, 'scratch.txt'), 'mine')
+  await runTask(s.product, s.repo, s.task, { invoke: agent().invoke, notify: notifier().notify })
+  execFileSync('rm', [join(s.repoDir, 'scratch.txt')])
+  const result = await runTask(s.product, s.repo, s.task, { invoke: agent(write('ok')).invoke, notify: notifier().notify })
+
+  const { lines, unreadable } = readJournal(s.dir)
+  assert.equal(unreadable, 0)
+  assert.deepEqual(lines.map((l) => l.outcome), ['skipped', 'passed'])
+  assert.deepEqual(lines[1], JSON.parse(JSON.stringify(result)), 'the line is the result')
+  assert.equal(lines[1].kind, 'task')
 })
