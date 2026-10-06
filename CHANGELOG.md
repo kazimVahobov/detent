@@ -14,6 +14,10 @@ Notable changes, newest first. The format follows
   cannot read is an error, and nothing is ever approved by it. `summary`
   reports how often a green run was not done. `implement` and `accept` must be
   different models.
+- Build step 7: `detent doctor` checks the nine conditions and the namespace
+  with the same scan, says what to change — as a command where there is one,
+  such as the `git branch agent/dev <compare>` it never runs itself — and
+  writes nothing.
 - `detent init` scans the product folder — repositories, branches, scripts,
   lockfiles, submodules, installed agent CLIs — and writes `product.json`.
   Re-run, it proposes a diff in `product.proposed.json` and keeps what a person
