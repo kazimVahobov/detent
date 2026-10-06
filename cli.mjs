@@ -29,7 +29,7 @@ const COMMANDS = {
   promote: 'merge agent/dev into agent/staging behind the batch gauge',
   summary: 'pass rate, iterations, cost per pass',
   dashboard: 'a page that watches this product',
-  gauge: "run a repository's gauge by hand: [repo…] [--profile exit|merge]",
+  gauge: "run a repository's gauge by hand: [repo…] [--profile exit|merge|promote]",
   recover: 'return repositories an interrupted run left behind',
   prune: 'delete agent/task-* branches already merged into agent/dev',
 }

@@ -7,7 +7,7 @@ import { UsageError } from './usage.mjs'
 
 export const options = { profile: { type: 'string', default: 'exit' } }
 
-const PROFILES = ['exit', 'merge']
+const PROFILES = ['exit', 'merge', 'promote']
 
 export async function run(product, names, { profile }) {
   if (!PROFILES.includes(profile)) throw new UsageError(`unknown profile "${profile}" — expected ${PROFILES.join(' or ')}`)

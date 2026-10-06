@@ -86,6 +86,17 @@ export function diagnose(dir, scan) {
       say(checks, FAIL, null, 'a branch named exactly "agent" makes refs/heads/agent/ impossible to create', `git -C ${repo.dir} branch -m agent <another name>`)
     }
     const integration = config.branches.integration
+    const staging = config.branches.staging
+    if (repo.gauge.promote.length && !staging) {
+      // A declared check that nothing ever runs is the same invented green as
+      // a missing gauge (§6, §12).
+      say(checks, FAIL, null, 'gauge.promote is declared but there is no branches.staging — nothing would ever run it', 'declare branches.staging, or remove gauge.promote')
+    }
+    if (staging && !found.branches.includes(staging)) {
+      say(checks, FAIL, null, `${staging} does not exist — detent never creates it`, `git -C ${repo.dir} branch ${staging} ${integration}`)
+    } else if (staging) {
+      say(checks, repo.gauge.promote.length ? OK : LOOK, null, repo.gauge.promote.length ? `${staging} exists, promote: ${repo.gauge.promote.map((s) => s.stage).join(', ')}` : `${staging} exists but declares no promote stages — a promotion would check nothing the tasks did not`)
+    }
     if (found.branches.includes(integration)) say(checks, OK, null, `${integration} exists`)
     else {
       // Creating it means naming a start point, and the start point is a

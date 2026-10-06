@@ -56,11 +56,11 @@ test('the shape in DESIGN.md §11, minus what is not accepted yet, loads', () =>
 
 test('defaults fill what a minimal file leaves out', () => {
   const { product } = validateProduct(minimal(), '/p')
-  assert.deepEqual(product.branches, { integration: 'agent/dev', task: 'agent/task-{id}-{slug}' })
+  assert.deepEqual(product.branches, { integration: 'agent/dev', task: 'agent/task-{id}-{slug}', staging: null })
   assert.equal(product.concurrency, 1)
   assert.equal(product.attempts, 3)
   assert.equal(product.repos[0].path, 'acme-api', 'path defaults to the name')
-  assert.deepEqual(product.repos[0].gauge, { exit: [], merge: [] }, 'no gauge is carried as empty, not refused')
+  assert.deepEqual(product.repos[0].gauge, { exit: [], merge: [], promote: [] }, 'no gauge is carried as empty, not refused')
 })
 
 test('a repository overrides a role, never the models as a whole', () => {
@@ -109,9 +109,15 @@ test('the task template needs {id} and knows no other placeholder', () => {
   assert.deepEqual(problemsOf(minimal({ branches: { task: 'agent/t/{id}' } })), [])
 })
 
-test('branches.staging and gauge.promote are refused by name, pointing at step 10', () => {
-  assertProblem(minimal({ branches: { staging: 'agent/staging' } }), /^branches\.staging: .*build step 10/)
-  assertProblem(minimal({ repos: [{ name: 'a', compare: 'dev', gauge: { promote: [] } }] }), /^repos\[0\]\.gauge\.promote: .*build step 10/)
+test('branches.staging is a second stop in the namespace, and gauge.promote a profile like the others', () => {
+  const { product } = validateProduct(
+    minimal({ branches: { staging: 'agent/staging' }, repos: [{ name: 'a', compare: 'dev', gauge: { promote: [{ stage: 'e2e', command: 'npm run e2e' }] } }] }),
+  )
+  assert.equal(product.branches.staging, 'agent/staging')
+  assert.deepEqual(product.repos[0].gauge.promote, [{ stage: 'e2e', command: 'npm run e2e' }])
+  assertProblem(minimal({ branches: { staging: 'staging' } }), /^branches\.staging: "staging" is outside agent\//)
+  assertProblem(minimal({ branches: { staging: 'agent/dev' } }), /^branches\.staging: "agent\/dev" is the integration branch/)
+  assertProblem(minimal({ repos: [{ name: 'a', compare: 'dev', gauge: { promote: [{ stage: 'e2e' }] } }] }), /gauge\.promote\[0\]\.command/)
 })
 
 test('compare is required, and names a human branch', () => {

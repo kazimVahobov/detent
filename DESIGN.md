@@ -791,10 +791,9 @@ By what the rest depends on, not by what is most interesting.
 
 End to end after 6. Worth showing after 8.
 
-Until step 10, `branches.staging` and `gauge.promote` are **refused by the
-loader by name**, with the version they arrive in. They are specified (§7)
-before they are accepted, and accepted before they are advertised — see
-`PROGRESS.md` for where the build actually is.
+`branches.staging` and `gauge.promote` were specified (§7) in 0.0.2 and
+**refused by the loader by name** until step 10 accepted them: specified before
+accepted, accepted before advertised. `PROGRESS.md` says where the build is.
 
 ---
 
