@@ -4,6 +4,23 @@ Notable changes, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions mean what
 [`PROGRESS.md`](PROGRESS.md) says they mean.
 
+## Unreleased
+
+### Added
+
+- Build step 1: `core/product.mjs` loads `.detent/product.json` strictly — every
+  problem at once, each naming its path; branch values checked against
+  `agent/` and as git ref names; `branches.staging` and `gauge.promote` refused
+  by name until step 10. `core/task.mjs` reads the queue in
+  `tasks/{todo,hold,done,failed}` and rejects one that cannot be executed.
+  Nothing calls either yet.
+
+### Changed
+
+- Session work on detent itself now goes through a task file and an
+  `agent/task-<id>-<slug>` branch, as `CONTRIBUTING.md` said it would once the
+  queue existed.
+
 ## 0.0.2 — 2026-10-03
 
 The first release cut by the workflow rather than by hand: tagged, checked
