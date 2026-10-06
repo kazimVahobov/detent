@@ -10,6 +10,7 @@ import process from 'node:process'
 import { parseArgs } from 'node:util'
 import { ConfigError, loadProduct } from './core/product.mjs'
 import * as gauge from './core/commands/gauge.mjs'
+import * as init from './core/commands/init.mjs'
 import * as recover from './core/commands/recover.mjs'
 import * as runCommand from './core/commands/run.mjs'
 import * as summary from './core/commands/summary.mjs'
@@ -32,7 +33,7 @@ const COMMANDS = {
 }
 
 // Commands that exist, each a module: { options, run(product, positionals, values) }.
-const BUILT = { gauge, recover, run: runCommand, summary }
+const BUILT = { gauge, init, recover, run: runCommand, summary }
 
 function usage() {
   const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length))
@@ -81,7 +82,9 @@ async function main(argv) {
       return 2
     }
     try {
-      return await module.run(loadProduct(parsed.values.product), parsed.positionals, parsed.values)
+      // A command that makes or checks product.json works without one.
+      const target = module.needsProduct === false ? parsed.values.product : loadProduct(parsed.values.product)
+      return await module.run(target, parsed.positionals, parsed.values)
     } catch (error) {
       if (error instanceof UsageError) {
         process.stderr.write(`detent ${command}: ${error.message}\n`)

@@ -14,6 +14,10 @@ Notable changes, newest first. The format follows
   cannot read is an error, and nothing is ever approved by it. `summary`
   reports how often a green run was not done. `implement` and `accept` must be
   different models.
+- `detent init` scans the product folder — repositories, branches, scripts,
+  lockfiles, submodules, installed agent CLIs — and writes `product.json`.
+  Re-run, it proposes a diff in `product.proposed.json` and keeps what a person
+  wrote. Gauge stages are proposed only from scripts a repository declares.
 - Every agent call has a time limit: `timeout` in `product.json`, in minutes,
   30 by default and settable per repository. Past it the agent and everything
   it started are stopped, and the task is paused with its work kept.

@@ -687,6 +687,18 @@ or the first such person leaves.
 Re-running `init` produces a **diff to review**, not a silent overwrite. The
 machine proposes, a person accepts.
 
+What pass 1 writes, from files and git alone: every git repository directly in
+the product folder; `compare` from the branches that exist (`dev`, `develop`,
+`main`, `master`, in that order); gauge stages from scripts the repository
+already declares — lint, typecheck and test into `exit`, build into `merge`,
+run with the package manager its lockfile names — and nothing for a repository
+that declares none; every submodule path as `neverCommit`, and an edge with
+`source: "scan"` when the submodule is a sibling repository; and agents from
+the CLIs on `PATH`, a different one for the review when two are installed.
+With a `product.json` already there, the proposal keeps every field a person
+wrote, adds only what is new, goes to `.detent/product.proposed.json`, and the
+difference is printed.
+
 `gauge` exists so the gauge is useful before any run does: a person sees exactly
 what an agent will be held to — every stage, its time, and for a red one the
 output the agent would be handed — before an agent is ever held to it. A
