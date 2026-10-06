@@ -4,9 +4,9 @@ What detent is, written down before it is built. Decisions are recorded with
 the reason that produced them: in six months the reason is worth more than the
 decision.
 
-> **Status: nothing here is implemented.** This is the specification the code is
-> being written against, not a description of working software. The build order
-> at the end says what exists and what does not.
+> **Status: being built.** This is the specification the code is written
+> against, not a description of working software. [PROGRESS.md](PROGRESS.md)
+> says which steps of the build order exist.
 
 ---
 
@@ -279,8 +279,9 @@ call it behaviour.
 Stages run in order and the first red one ends the gauge: it is the answer, and
 a stage built on top of it would report the same failure in other words. The
 agent is handed that stage's command and the end of its output — stdout and
-stderr together, in the order they were written, capped from the front because
-the failure is almost always reported last.
+stderr together, in the order they arrived — two pipes guarantee no more than
+that — capped from the front because the failure is almost always reported
+last.
 
 `attempts` in `product.json` is how many **identical failures in a row** end a
 task as `escalated`. Identical means the same stage, the same exit, and the same
@@ -392,6 +393,10 @@ Co-Authored-By: ...
 
 Parking the work as a commit rather than leaving a dirty tree matters: a dirty
 tree would fail the gate and block that repository for every task behind it.
+The wip commit is written with git's plumbing, onto the task branch, without
+checking anything out and **without running the repository's hooks** — a
+failing pre-commit hook is exactly the situation in which unfinished work most
+needs saving. Never a stash, and never `agent/dev`.
 
 **A promotion** — a merge commit on `agent/staging` that names what it carries:
 
