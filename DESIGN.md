@@ -553,6 +553,7 @@ detent run          work the queue
 detent promote      merge agent/dev into agent/staging behind the batch gauge
 detent summary      pass rate, iterations, cost per pass
 detent dashboard    a page that watches this product
+detent gauge        run a repository's gauge by hand, outside any run
 detent recover      return repositories an interrupted run left behind
 detent prune        delete agent/task-* branches already merged into agent/dev
 ```
@@ -574,6 +575,12 @@ or the first such person leaves.
 
 Re-running `init` produces a **diff to review**, not a silent overwrite. The
 machine proposes, a person accepts.
+
+`gauge` exists so the gauge is useful before any run does: a person sees exactly
+what an agent will be held to — every stage, its time, and for a red one the
+output the agent would be handed — before an agent is ever held to it. A
+repository with no stages in the profile is reported as having no lock, never
+as green.
 
 ### Three things `doctor` checks beyond the nine conditions
 

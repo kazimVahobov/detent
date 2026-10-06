@@ -9,7 +9,9 @@ import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { parseArgs } from 'node:util'
 import { ConfigError, loadProduct } from './core/product.mjs'
-import { recover } from './core/workspace.mjs'
+import * as gauge from './core/commands/gauge.mjs'
+import * as recover from './core/commands/recover.mjs'
+import { UsageError } from './core/commands/usage.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const { version } = JSON.parse(readFileSync(join(here, 'package.json'), 'utf8'))
@@ -22,27 +24,13 @@ const COMMANDS = {
   promote: 'merge agent/dev into agent/staging behind the batch gauge',
   summary: 'pass rate, iterations, cost per pass',
   dashboard: 'a page that watches this product',
+  gauge: "run a repository's gauge by hand: [repo…] [--profile exit|merge]",
   recover: 'return repositories an interrupted run left behind',
   prune: 'delete agent/task-* branches already merged into agent/dev',
 }
 
-const BUILT = {
-  recover(product) {
-    const report = recover(product)
-    if (report.length === 0) {
-      process.stdout.write('nothing to recover: no repository is out\n')
-      return 0
-    }
-    for (const line of report) {
-      const what =
-        line.action === 'returned'
-          ? `returned to ${product.branches.integration}${line.aborted ? `, ${line.aborted} aborted` : ''}${line.parked ? `, work parked as ${line.parked.slice(0, 7)}` : ''}`
-          : `${line.action}: ${line.reason}`
-      process.stdout.write(`${line.repo}  task ${line.task}  ${what}\n`)
-    }
-    return report.every((line) => line.action === 'returned') ? 0 : 1
-  },
-}
+// Commands that exist, each a module: { options, run(product, positionals, values) }.
+const BUILT = { gauge, recover }
 
 function usage() {
   const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length))
@@ -59,7 +47,7 @@ function usage() {
   ].join('\n')
 }
 
-function main(argv) {
+async function main(argv) {
   const [command, ...rest] = argv
 
   if (!command || command === '--help' || command === '-h' || command === 'help') {
@@ -78,16 +66,25 @@ function main(argv) {
   }
 
   if (Object.hasOwn(BUILT, command)) {
-    let options
+    const module = BUILT[command]
+    let parsed
     try {
-      options = parseArgs({ args: rest, options: { product: { type: 'string', default: '.' } } }).values
+      parsed = parseArgs({
+        args: rest,
+        allowPositionals: true,
+        options: { product: { type: 'string', default: '.' }, ...module.options },
+      })
     } catch (error) {
       process.stderr.write(`detent ${command}: ${error.message}\n`)
       return 2
     }
     try {
-      return BUILT[command](loadProduct(options.product))
+      return await module.run(loadProduct(parsed.values.product), parsed.positionals, parsed.values)
     } catch (error) {
+      if (error instanceof UsageError) {
+        process.stderr.write(`detent ${command}: ${error.message}\n`)
+        return 2
+      }
       if (!(error instanceof ConfigError)) throw error
       process.stderr.write(`detent: ${error.message}\n`)
       return 78
@@ -100,4 +97,4 @@ function main(argv) {
   return 70
 }
 
-process.exit(main(process.argv.slice(2)))
+process.exitCode = await main(process.argv.slice(2))

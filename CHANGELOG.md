@@ -26,6 +26,9 @@ Notable changes, newest first. The format follows
   `.detent/state.json` records which repository is out, and `detent recover` —
   the first command that does something — returns what a hard kill left behind.
 
+- `detent gauge [repo…] [--profile exit|merge]` runs a repository's gauge by
+  hand, outside any run.
+
 ### Changed
 
 - Session work on detent itself now goes through a task file and an
