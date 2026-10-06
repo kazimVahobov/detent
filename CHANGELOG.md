@@ -19,6 +19,12 @@ Notable changes, newest first. The format follows
   decision on the agent's way out — leave, retry with the failure text, or
   escalate after `attempts` identical failures in a row. DESIGN.md §6 now says
   what "identical" means.
+- Build step 3: `core/workspace.mjs` holds the invariant — every exit from a
+  task, including Ctrl-C, leaves the repository on `agent/dev` with a clean tree
+  and moves no ref outside `refs/heads/agent/`. Unfinished work is parked as a
+  wip commit on the task branch, written without running hooks.
+  `.detent/state.json` records which repository is out, and `detent recover` —
+  the first command that does something — returns what a hard kill left behind.
 
 ### Changed
 

@@ -6,8 +6,9 @@ A detent is the catch that holds a mechanism in a defined position until it is
 deliberately released. Here it is released by a green gauge — the project's own
 checks — and by nothing else.
 
-> **Status: 0.0.1, the name and nothing behind it.** Published to hold the name
-> while the tool is built. Do not install it yet.
+> **Status: being built.** The published package holds the name; nothing in it
+> runs a task yet. [PROGRESS.md](PROGRESS.md) says where the build is. Do not
+> install it yet.
 
 ## What it will do
 

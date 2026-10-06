@@ -42,7 +42,7 @@ test('the first red stage stops the gauge and is named exactly', async () => {
   assert.equal(formatGauge(result), 'lint ✓ test ✗')
 })
 
-test('stdout and stderr are kept together, in the order they were written', async () => {
+test('stdout and stderr are kept together, in the order they arrived', async () => {
   const result = await runGauge(
     [{ stage: 'mixed', command: node("process.stdout.write('a\\n'); setTimeout(() => { process.stderr.write('b\\n'); setTimeout(() => process.stdout.write('c\\n'), 30) }, 30)") }],
     { cwd: tmpdir() },
@@ -52,13 +52,15 @@ test('stdout and stderr are kept together, in the order they were written', asyn
 
 test('long output is capped from the front, so the end survives', async () => {
   const result = await runGauge(
-    [{ stage: 'noisy', command: node("for (let i = 0; i < 5000; i++) console.log('line ' + i); console.error('THE FAILURE'); process.exit(1)") }],
+    // One stream, so the order is the order of writing; across two pipes only
+    // arrival order is knowable (the test above).
+    [{ stage: 'noisy', command: node("for (let i = 0; i < 5000; i++) console.log('line ' + i); console.log('THE FAILURE'); process.exitCode = 1") }],
     { cwd: tmpdir(), limit: 2048 },
   )
   const { output } = result.failed
   assert.ok(output.length < 2100, `output is ${output.length} long`)
   assert.match(output, /^\[… earlier output dropped\]/)
-  assert.match(output, /THE FAILURE\n$/)
+  assert.match(output, /line 4999\nTHE FAILURE\n$/)
   assert.doesNotMatch(output, /line 0\n/)
 })
 
