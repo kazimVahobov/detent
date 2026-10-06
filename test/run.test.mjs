@@ -403,3 +403,39 @@ test('every run leaves exactly one journal line, skipped runs included', async (
   assert.deepEqual(lines[1], JSON.parse(JSON.stringify(result)), 'the line is the result')
   assert.equal(lines[1].kind, 'task')
 })
+
+// --- the files that judge the agent ------------------------------------------
+
+for (const [what, edit] of [
+  ['.detent/product.json', (dir) => writeFileSync(join(dir, '.detent', 'product.json'), '{"loosened": true}')],
+  ['tasks/todo/0042-wallet-endpoint.md', (dir) => writeFileSync(join(dir, 'tasks', 'todo', '0042-wallet-endpoint.md'), '---\nid: 0042\nrepo: acme-api\n---\n\n# Acceptance criteria\n\n- [ ] nothing\n')],
+  ['runs/journal.jsonl', (dir) => (mkdirSync(join(dir, 'runs'), { recursive: true }), writeFileSync(join(dir, 'runs', 'journal.jsonl'), '{"kind":"task","outcome":"passed"}\n'))],
+]) {
+  test(`an agent that edits ${what} is caught, and the task paused`, async () => {
+    const s = setup()
+    const a = agent((cwd) => {
+      write('ok')(cwd)
+      edit(s.dir)
+    })
+    const n = notifier()
+    const result = await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: n.notify })
+    assert.equal(result.outcome, 'error')
+    assert.equal(result.reason, `the agent changed ${what} — the files that judge it are not its to edit; look at them before resuming`)
+    assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev'), sh(s.repoDir, 'rev-parse', 'dev'), 'nothing landed')
+    assert.equal(n.sent.length, 1)
+    assertInvariant(s.repoDir, s.before, s.product)
+  })
+}
+
+test('an edited gauge never judges the attempt that edited it', async () => {
+  const s = setup()
+  const a = agent(() => {
+    // Leaves value.txt wrong, and makes the gauge on disk always green.
+    const raw = JSON.parse(readFileSync(join(s.dir, '.detent', 'product.json'), 'utf8'))
+    raw.repos[0].gauge = { exit: [{ stage: 'test', command: 'true' }] }
+    writeFileSync(join(s.dir, '.detent', 'product.json'), JSON.stringify(raw))
+  })
+  const result = await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: notifier().notify })
+  assert.equal(result.outcome, 'error')
+  assert.equal(result.merged, false)
+})

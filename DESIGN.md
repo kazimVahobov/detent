@@ -252,6 +252,14 @@ put there on `<task branch>-stray`. If a human branch or a tag moved, detent
 names it and pauses the task — it is not detent's to move back. Green with
 nothing changed is not a pass.
 
+The files that **judge** the agent live outside its repository but within reach
+of its shell: `.detent/product.json` holds the gauge, the task file holds the
+criteria, the journal holds the record. Each is fingerprinted before the agent's
+turn and compared after it; a change pauses the task and names the file. They
+are the person's, so detent does not restore them — and the run goes on using
+the product it loaded before the agent started, so an edited gauge never judges
+the attempt that edited it.
+
 ### Pausing, and resuming
 
 Every outcome other than `passed` and `skipped` needs a person, so it **pauses

@@ -4,6 +4,14 @@ Notable changes, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions mean what
 [`PROGRESS.md`](PROGRESS.md) says they mean.
 
+## Unreleased
+
+### Added
+
+- After every agent turn, `.detent/product.json`, the task's own file and the
+  journal are compared with what they were before it; an agent that edits the
+  files that judge it pauses the task.
+
 ## 0.1.0 — 2026-10-06
 
 End to end: a task goes from a file to a merge commit on `agent/dev`, and the

@@ -10,6 +10,9 @@
 // The result has the shape of a journal line (DESIGN.md §11) so that writing
 // the journal (step 6) is appending it.
 
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import { formatGauge, runGauge } from './gauge.mjs'
 import { abortMerge, beginMerge, concludeMerge, deleteBranch, git, setRef, snapshotOnto, snapshotRefs, tip } from './git.mjs'
 import { judge } from './lock.mjs'
@@ -18,7 +21,8 @@ import { commitSubject, implementPrompt } from './prompt.mjs'
 import { moveTask, taskBranch } from './task.mjs'
 import { withTask } from './workspace.mjs'
 import { invoke as defaultInvoke } from './agents.mjs'
-import { appendJournal } from './journal.mjs'
+import { JOURNAL_FILE, appendJournal } from './journal.mjs'
+import { PRODUCT_FILE } from './product.mjs'
 
 export async function runTask(product, repo, task, { invoke = defaultInvoke, notify = defaultNotify, now = () => new Date() } = {}) {
   const role = repo.models.implement
@@ -52,6 +56,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
       record.resumed = resumed
       const start = tip(cwd, integration)
       const watched = humanRefs(cwd)
+      const judges = fingerprints([join(product.dir, PRODUCT_FILE), task.file, join(product.dir, JOURNAL_FILE)])
       const history = []
       let feedback = null
 
@@ -112,7 +117,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
         // The agent has a shell, so the boundary is checked after it, not
         // assumed. agent/dev is detent's to put back; a human ref is not, and
         // is only named.
-        const breach = checkBoundary(cwd, { integration, start, branch, watched })
+        const breach = checkBoundary(cwd, { integration, start, branch, watched, judges, productDir: product.dir })
         if (breach) return pause('error', breach)
         if (!answer.ok) return pause('error', `the agent failed: ${answer.error}`)
 
@@ -215,8 +220,17 @@ function humanRefs(cwd) {
   return refs
 }
 
-function checkBoundary(cwd, { integration, start, branch, watched }) {
+function checkBoundary(cwd, { integration, start, branch, watched, judges, productDir }) {
   const problems = []
+
+  // The files that judge the agent live outside its repository, within reach
+  // of a shell. They are the person's, so a change is named, not undone — and
+  // this run goes on using the product it loaded before the agent started.
+  const edited = [...judges].filter(([file, hash]) => digest(file) !== hash).map(([file]) => relative(productDir, file))
+  if (edited.length > 0) {
+    problems.push(`the agent changed ${edited.join(', ')} — the files that judge it are not its to edit; look at them before resuming`)
+    for (const file of judges.keys()) judges.set(file, digest(file))
+  }
 
   const now = humanRefs(cwd)
   const moved = [...new Set([...watched.keys(), ...now.keys()])].filter((ref) => watched.get(ref) !== now.get(ref))
@@ -236,6 +250,19 @@ function checkBoundary(cwd, { integration, start, branch, watched }) {
   }
 
   return problems.length > 0 ? problems.join('; ') : null
+}
+
+function fingerprints(files) {
+  return new Map(files.map((file) => [file, digest(file)]))
+}
+
+function digest(file) {
+  try {
+    return createHash('sha256').update(readFileSync(file)).digest('hex')
+  } catch (error) {
+    if (error.code === 'ENOENT') return null
+    throw error
+  }
 }
 
 function round(usd) {
