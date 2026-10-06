@@ -31,6 +31,13 @@ Notable changes, newest first. The format follows
 
 ### Changed
 
+- A task gets `attempts` attempts (default 3); red on the last one pauses it in
+  `tasks/hold/`, keeps its branch, and notifies the developer through the
+  `notify` command in `product.json` or a desktop notification. Moving it back
+  to `todo/` resumes it on the same branch. Identical failures no longer decide
+  when to stop, only how the escalation reads
+  ([ADR 0009](docs/adr/0009-three-attempts-then-pause.md)).
+
 - Session work on detent itself now goes through a task file and an
   `agent/task-<id>-<slug>` branch, as `CONTRIBUTING.md` said it would once the
   queue existed.

@@ -122,7 +122,7 @@ Commits made by detent carry the trailers from
 ```
 Task: 0042
 Gauge: lint ✓ typecheck ✓ test ✗ — 3 failing tests
-Outcome: escalated — three identical failures on one stage
+Outcome: escalated — 3 identical failures on test
 ```
 
 Human commits do not. The side effect is worth having: `git log` says who did

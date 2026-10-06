@@ -68,7 +68,7 @@ export function validateProduct(raw, dir = '.') {
     return { product: null, problems }
   }
 
-  strict(raw, '(root)', ['version', 'product', 'branches', 'concurrency', 'attempts', 'models', 'repos', 'edges'], fail)
+  strict(raw, '(root)', ['version', 'product', 'branches', 'concurrency', 'attempts', 'notify', 'models', 'repos', 'edges'], fail)
 
   if (raw.version !== 1) fail('version', `must be 1, got ${JSON.stringify(raw.version)}`)
 
@@ -129,6 +129,7 @@ export function validateProduct(raw, dir = '.') {
   }
 
   const attempts = positiveInteger(raw.attempts, 'attempts', DEFAULTS.attempts, fail)
+  const notify = raw.notify === undefined ? null : nonEmptyString(raw.notify, 'notify', fail)
   const models = validateModels(raw.models, 'models', fail) ?? {}
 
   // edges
@@ -169,6 +170,7 @@ export function validateProduct(raw, dir = '.') {
       branches,
       concurrency,
       attempts,
+      notify,
       models,
       repos: repos.map((repo) => ({
         ...repo,

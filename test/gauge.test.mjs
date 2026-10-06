@@ -105,29 +105,30 @@ test('red keeps the agent in, handing it the stage, the command and the output',
   assert.match(verdict.feedback, /Cannot find name 'x'/)
 })
 
-test('limit identical failures in a row on one stage escalate — no further attempt', () => {
+test('the last attempt red escalates — no further attempt — and says the failures were identical', () => {
   const same = () => red('test', '1 failing test: wallet balance')
   assert.equal(judge([same(), same()], { limit: 3 }).verdict, 'retry')
   const verdict = judge([same(), same(), same()], { limit: 3 })
   assert.equal(verdict.verdict, 'escalate')
+  assert.equal(verdict.identical, true)
   assert.equal(verdict.reason, '3 identical failures on test')
+  assert.match(verdict.feedback, /wallet balance/, 'the person gets what the agent got')
   assert.equal(judge([same()], { limit: 1 }).verdict, 'escalate')
 })
 
-test('failures that change are not identical, and the count restarts', () => {
-  assert.equal(judge([red('test', '3 failing'), red('test', '2 failing'), red('test', '1 failing')], { limit: 3 }).verdict, 'retry')
-  assert.equal(judge([red('lint', 'x'), red('test', 'x'), red('test', 'x')], { limit: 3 }).verdict, 'retry')
-  assert.equal(judge([red('test', 'x'), red('test', 'x', 2), red('test', 'x')], { limit: 3 }).verdict, 'retry')
-  const progress = [red('test', 'x'), red('test', 'x'), red('test', 'y'), red('test', 'y')]
-  assert.equal(judge(progress, { limit: 3 }).verdict, 'retry')
-  assert.equal(judge([...progress, red('test', 'y')], { limit: 3 }).verdict, 'escalate')
+test('failures that differ escalate on the budget all the same, and say so (ADR 0009)', () => {
+  const verdict = judge([red('test', '3 failing'), red('test', '2 failing'), red('lint', 'x')], { limit: 3 })
+  assert.equal(verdict.verdict, 'escalate')
+  assert.equal(verdict.identical, false)
+  assert.equal(verdict.reason, '3 failed attempts, last on lint')
+  assert.equal(judge([red('test', 'x'), red('test', 'x', 2), red('test', 'x')], { limit: 3 }).identical, false, 'a different exit is a different failure')
 })
 
 test('timings, timestamps and colour codes do not make a failure different', () => {
   const a = red('test', '\x1b[31m✗ wallet balance\x1b[0m (12ms)\n2026-10-07T09:12:03.120Z done in 1.24s')
   const b = red('test', '✗ wallet balance (340ms)\n2026-10-07T09:14:41.007Z done in 3.9s')
   assert.equal(fingerprint(a), fingerprint(b))
-  assert.equal(judge([a, b, a], { limit: 3 }).verdict, 'escalate')
+  assert.equal(judge([a, b, a], { limit: 3 }).identical, true)
   assert.equal(normalise('3 failing tests'), '3 failing tests', 'counts are not durations')
 })
 

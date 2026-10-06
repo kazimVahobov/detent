@@ -1,7 +1,7 @@
 # 0003. The gauge is declared as stages, in profiles
 
 - **Date:** 2026-10-03
-- **Status:** accepted
+- **Status:** accepted; the escalation rule is superseded by 0009
 
 ## Context
 

@@ -20,8 +20,8 @@ The constraints are in the code, not in the prompt.
 
 **When is the agent allowed to stop?** Not when it says it is done — when the
 project's checks pass. The gauge runs on the agent's way out; red means it does
-not get to leave, and it is handed the failure text to work from. Three
-identical failures in a row is an escalation, not a fourth attempt.
+not get to leave, and it is handed the failure text to work from. Three attempts, then the task is paused and
+you are told — not a fourth attempt, and not a verdict nobody has looked at.
 
 **Was it worth it?** Every run is a line in a journal: which model, how many
 times it hit red, which stage it died on, how long, how much. That turns "which
