@@ -192,18 +192,19 @@ tasks/todo/0042-wallet-endpoint.md
         ──→ any of these fails: the repository is skipped, the run continues
 
   git checkout -b agent/task-0042-wallet-endpoint agent/dev
+        (or the existing branch, when a paused task is resumed)
 
   ┌── the agent works in the main copy
   │   gauge (exit profile)
   │     red   → the agent is handed the stage and the failure text; attempt++
-  │     red 3× on the same stage → escalation, no fourth attempt
+  │     red on the last attempt → escalation, no further attempt
   └── green → commit
 
   acceptance pass, on a different model — may demote, never approve
 
   accepted  → checkout agent/dev → merge → done/
               conflict → merge --abort → escalation
-  otherwise → wip commit on the task branch → failed/
+  otherwise → wip commit on the task branch → hold/, and a person is told
 
   always    → checkout agent/dev, clean tree
   always    → one line appended to the journal
@@ -215,7 +216,7 @@ tasks/todo/0042-wallet-endpoint.md
 |---|---|---|---|
 | `passed` | gauge green, acceptance raised nothing | deleted after merge | yes |
 | `rejected` | **gauge green and the task still was not done** | kept | no |
-| `escalated` | three identical failures on one stage | kept | no |
+| `escalated` | the last of `attempts` attempts was red, or the merge conflicted | kept | no |
 | `error` | the run itself broke — quota, crash, exception | kept | no |
 | `skipped` | the gate refused: dirty tree, no `agent/dev` | none | no |
 
@@ -226,6 +227,22 @@ justifies running an acceptance pass at all.
 
 Failed work never reaches `agent/dev`, so the next task in that repository
 branches from a clean base and does not inherit someone else's mess.
+
+### Pausing, and resuming
+
+Every outcome other than `passed` and `skipped` needs a person, so it **pauses
+the task** rather than judging it: the file moves to `tasks/hold/`, the branch
+keeps the work, and the person is notified
+([ADR 0009](docs/adr/0009-three-attempts-then-pause.md)). Moving the file back
+to `todo/` resumes it on the same branch with a fresh budget and whatever the
+person added to the task. `failed/` is where a person puts a task they abandon;
+detent never moves anything there.
+
+`notify` in `product.json` is a shell command. It gets the message on stdin and
+`DETENT_TASK`, `DETENT_REPO`, `DETENT_OUTCOME`, `DETENT_BRANCH` and
+`DETENT_MESSAGE` in its environment — enough to reach a chat, a phone or a mail
+without detent holding a credential for any of them. Without it, detent tries a
+desktop notification. A notifier that fails is reported, never fatal.
 
 ---
 
@@ -274,7 +291,7 @@ A gauge of `lint + typecheck` with no tests checks that the code compiles, not
 that it works. detent will run it and will say so in the summary; it will not
 call it behaviour.
 
-### The lock, and what "identical" means
+### The lock
 
 Stages run in order and the first red one ends the gauge: it is the answer, and
 a stage built on top of it would report the same failure in other words. The
@@ -283,11 +300,12 @@ stderr together, in the order they arrived — two pipes guarantee no more than
 that — capped from the front because the failure is almost always reported
 last.
 
-`attempts` in `product.json` is how many **identical failures in a row** end a
-task as `escalated`. Identical means the same stage, the same exit, and the same
-output once what changes on every run regardless — colour codes, timestamps,
-durations — is removed. A different failing assertion, or a different number of
-failing tests, is not identical: the count starts again.
+`attempts` in `product.json` is the budget: how many times the agent is let
+back in (default 3). A red gauge on the last attempt ends the task as
+`escalated`. Whether the failures were **identical** is recorded in the reason,
+because "stuck on the same thing" and "failing somewhere new each time" are
+different news — identical meaning the same stage, the same exit and the same
+output once colour codes, timestamps and durations are removed.
 
 ---
 
@@ -386,7 +404,7 @@ wip(wallet): attempt 3, gauge red on test
 
 Task: 0042
 Gauge: lint ✓ typecheck ✓ test ✗ — 3 failing tests
-Outcome: escalated — three identical failures on one stage
+Outcome: escalated — 3 identical failures on test
 
 Co-Authored-By: ...
 ```
@@ -448,6 +466,7 @@ record are different things and belong in different places.
   },
   "concurrency": 3,
   "attempts": 3,
+  "notify": "notify-send detent \"$DETENT_MESSAGE\"",
   "models": { "implement": "claude-sonnet-5", "accept": "claude-opus-5" },
   "repos": [
     {

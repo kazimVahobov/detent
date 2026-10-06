@@ -3,8 +3,8 @@
 // A queue that cannot be executed is rejected before the first agent starts —
 // the difference between a typo and three wasted attempts.
 
-import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, linkSync, mkdirSync, readdirSync, readFileSync, unlinkSync } from 'node:fs'
+import { basename, join } from 'node:path'
 
 export const FOLDERS = ['todo', 'hold', 'done', 'failed']
 
@@ -84,6 +84,21 @@ export function readQueue(productDir, product) {
 export function nextId(tasks) {
   const highest = tasks.reduce((max, task) => Math.max(max, Number(task.id)), 0)
   return String(highest + 1).padStart(4, '0')
+}
+
+// A task changes folder; its number and its name do not. The destination is
+// never overwritten — a file already there is someone's task. A hard link and
+// an unlink, rather than a rename, because rename replaces silently.
+export function moveTask(productDir, task, folder) {
+  if (!FOLDERS.includes(folder)) throw new Error(`"${folder}" is not one of ${FOLDERS.join(', ')}`)
+  const name = basename(task.file)
+  const target = join(productDir, 'tasks', folder, name)
+  if (target === task.file) return task
+  mkdirSync(join(productDir, 'tasks', folder), { recursive: true })
+  if (existsSync(target)) throw new Error(`tasks/${folder}/${name} already exists`)
+  linkSync(task.file, target)
+  unlinkSync(task.file)
+  return { ...task, folder, file: target }
 }
 
 export function taskBranch(product, task) {

@@ -2,9 +2,9 @@
 //
 // The agent is allowed to stop when the project's checks pass, not when it
 // says it is done. Red means it stays, and is handed the failed stage and its
-// output to work from. The same failure, unchanged, `limit` times in a row is
-// an escalation: a fourth identical attempt buys nothing a person would not
-// rather know about now.
+// output to work from. `limit` attempts is the budget (ADR 0009): red on the
+// last one is an escalation, and a person is told rather than a fourth attempt
+// being bought.
 
 export function judge(history, { limit }) {
   const last = history.at(-1)
@@ -13,13 +13,19 @@ export function judge(history, { limit }) {
   if (last.lock === 'absent') return { verdict: 'unlocked', attempts: history.length }
   if (last.green) return { verdict: 'leave', attempts: history.length }
 
-  const tail = history.slice(-limit)
-  if (tail.length === limit && tail.every((r) => !r.green && fingerprint(r) === fingerprint(last))) {
+  if (history.length >= limit) {
+    // Identity no longer decides when to stop, but it is still the first thing
+    // a person wants to know: stuck on one thing, or failing somewhere new.
+    const tail = history.slice(-limit)
+    const identical = tail.every((r) => !r.green && fingerprint(r) === fingerprint(last))
+    const stage = last.failed.stage
     return {
       verdict: 'escalate',
       attempts: history.length,
-      stage: last.failed.stage,
-      reason: `${limit} identical failures on ${last.failed.stage}`,
+      stage,
+      identical,
+      reason: identical ? `${limit} identical failures on ${stage}` : `${history.length} failed attempts, last on ${stage}`,
+      feedback: feedback(last),
     }
   }
 
@@ -29,8 +35,7 @@ export function judge(history, { limit }) {
 // What makes two failures "identical": the same stage, the same exit, and the
 // same output once what changes on every run regardless — colour codes,
 // timestamps, durations — is taken out. A different failing assertion, or a
-// different number of failing tests, is progress of a kind and is not
-// identical.
+// different number of failing tests, is not identical.
 export function fingerprint(result) {
   const failed = result.failed
   if (!failed) return null

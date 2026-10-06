@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { validateProduct } from '../core/product.mjs'
-import { QueueError, nextId, parseTask, readQueue, taskBranch } from '../core/task.mjs'
+import { QueueError, moveTask, nextId, parseTask, readQueue, taskBranch } from '../core/task.mjs'
 
 const { product } = validateProduct({ version: 1, product: { name: 'acme' }, repos: [{ name: 'acme-api', compare: 'dev' }] })
 
@@ -135,4 +135,20 @@ test('every problem in the queue is reported at once', () => {
 
 test('the task branch comes from the template', () => {
   assert.equal(taskBranch(product, { id: '0042', slug: 'wallet-endpoint' }), 'agent/task-0042-wallet-endpoint')
+})
+
+test('a task moves between folders and keeps its name, and never overwrites', () => {
+  const dir = queue({ 'todo/0001-a.md': task({ id: '0001' }), 'hold/0002-b.md': 'parked' })
+  const [first] = readQueue(dir, product)
+  const held = moveTask(dir, first, 'hold')
+  assert.equal(held.folder, 'hold')
+  assert.ok(existsSync(join(dir, 'tasks', 'hold', '0001-a.md')))
+  assert.ok(!existsSync(join(dir, 'tasks', 'todo', '0001-a.md')))
+  assert.match(readFileSync(held.file, 'utf8'), /id: 0001/)
+
+  mkdirSync(join(dir, 'tasks', 'done'))
+  writeFileSync(join(dir, 'tasks', 'done', '0001-a.md'), 'someone else')
+  assert.throws(() => moveTask(dir, held, 'done'), /tasks\/done\/0001-a\.md already exists/)
+  assert.ok(existsSync(held.file), 'a refused move leaves the task where it was')
+  assert.throws(() => moveTask(dir, held, 'archive'), /not one of/)
 })

@@ -10,6 +10,7 @@ import process from 'node:process'
 import {
   abortOperation,
   branchExists,
+  checkoutBranch,
   createBranch,
   createRef,
   currentBranch,
@@ -93,17 +94,16 @@ function untrack(undo) {
   }
 }
 
-// Run `work` on a fresh task branch and return the repository whatever happens.
-// An exception from the work is rethrown after the return, not instead of it.
+// Run `work` on the task branch — fresh, or the existing one when a paused task
+// is resumed (ADR 0009) — and return the repository whatever happens. An
+// exception from the work is rethrown after the return, not instead of it.
 export async function withTask(product, repo, task, work) {
   const branch = taskBranch(product, task)
   const integration = product.branches.integration
 
   const refusal = gate(product, repo)
   if (refusal) return { outcome: 'skipped', reason: refusal }
-  if (branchExists(repo.dir, branch)) {
-    return { outcome: 'skipped', reason: `${branch} already exists — earlier work on this task is kept there` }
-  }
+  const resumed = branchExists(repo.dir, branch)
 
   claim(product.dir, repo.name, { task: task.id, branch })
   let returned = null
@@ -117,9 +117,10 @@ export async function withTask(product, repo, task, work) {
 
   let reason = 'the work ended without committing it'
   try {
-    createBranch(repo.dir, branch, integration)
-    const result = await work({ cwd: repo.dir, branch, setAttempt: (n) => setAttempt(product.dir, repo.name, n) })
-    return { outcome: 'returned', branch, result, ...undo(reason) }
+    if (resumed) checkoutBranch(repo.dir, branch)
+    else createBranch(repo.dir, branch, integration)
+    const result = await work({ cwd: repo.dir, branch, resumed, setAttempt: (n) => setAttempt(product.dir, repo.name, n) })
+    return { outcome: 'returned', branch, resumed, result, ...undo(reason) }
   } catch (error) {
     reason = `the run failed: ${error.message.split('\n')[0]}`
     throw error

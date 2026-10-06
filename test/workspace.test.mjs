@@ -204,7 +204,6 @@ test('the gate refuses, and a refusal touches nothing', async () => {
     }, /a merge is in progress/],
     ['no agent/dev', ({ repoDir }) => sh(repoDir, 'branch', '-D', 'agent/dev'), /agent\/dev does not exist — create it from your branch: git branch agent\/dev dev/],
     ['a repository already out', ({ product }) => claim(product.dir, 'acme-api', { task: '0007', branch: 'agent/task-0007-x' }), /task 0007 is already active here/],
-    ['a task branch that already exists', ({ repoDir }) => sh(repoDir, 'branch', BRANCH, 'agent/dev'), /already exists — earlier work on this task is kept there/],
   ]
 
   for (const [name, setup, reason] of cases) {
@@ -224,6 +223,29 @@ test('the gate refuses, and a refusal touches nothing', async () => {
     assert.equal(currentBranch(context.repoDir), head, `${name}: HEAD did not move`)
     assert.equal(sh(context.repoDir, 'status', '--porcelain'), status, `${name}: the tree is as it was`)
   }
+})
+
+test('a paused task resumes on its kept branch, with the work it left there', async () => {
+  const { repoDir, product, repo } = fixture()
+  const before = snapshotRefs(repoDir)
+
+  const first = await withTask(product, repo, TASK, ({ cwd, resumed }) => {
+    assert.equal(resumed, false)
+    writeFileSync(join(cwd, 'wallet.js'), 'half\n')
+  })
+  assert.equal(first.resumed, false)
+  const parked = sh(repoDir, 'rev-parse', BRANCH)
+
+  const second = await withTask(product, repo, TASK, ({ cwd, resumed }) => {
+    assert.equal(resumed, true)
+    assert.equal(currentBranch(cwd), BRANCH)
+    assert.equal(readFileSync(join(cwd, 'wallet.js'), 'utf8'), 'half\n', 'the parked work is there to continue from')
+    writeFileSync(join(cwd, 'wallet.js'), 'whole\n')
+  })
+  assert.equal(second.resumed, true)
+  assertInvariant(repoDir, before, product)
+  assert.equal(sh(repoDir, 'rev-parse', `${BRANCH}~1`), parked, 'the second attempt builds on the first')
+  assert.equal(show(repoDir, BRANCH, 'wallet.js'), 'whole')
 })
 
 test('gate passes on a clean repository standing on a human branch', () => {

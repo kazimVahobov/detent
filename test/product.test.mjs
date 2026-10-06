@@ -160,3 +160,10 @@ test('loadProduct reads .detent/product.json and throws a ConfigError naming the
   writeFileSync(join(dir, '.detent', 'product.json'), JSON.stringify(minimal()))
   assert.equal(loadProduct(dir).repos[0].dir, join(dir, 'acme-api'))
 })
+
+test('notify is a command, or absent', () => {
+  assert.equal(validateProduct(minimal()).product.notify, null)
+  assert.equal(validateProduct(minimal({ notify: 'notify-send detent "$DETENT_MESSAGE"' })).product.notify, 'notify-send detent "$DETENT_MESSAGE"')
+  assertProblem(minimal({ notify: '' }), /^notify: must be a non-empty string/)
+  assertProblem(minimal({ notify: ['slack'] }), /^notify: must be a non-empty string/)
+})

@@ -7,12 +7,13 @@ that changed**.
 |---|---|---|
 | [0001](0001-agent-branch-namespace.md) | The agent branch namespace, and two human gates | accepted |
 | [0002](0002-no-worktrees.md) | No worktrees: one active task per repository | accepted |
-| [0003](0003-declared-gauge-stages.md) | The gauge is declared as stages, in profiles | accepted |
+| [0003](0003-declared-gauge-stages.md) | The gauge is declared as stages, in profiles | accepted; escalation superseded by 0009 |
 | [0004](0004-acceptance-demotes-only.md) | The acceptance pass may demote, never approve | accepted |
 | [0005](0005-queue-in-the-product-folder.md) | The queue lives in the product folder | accepted |
 | [0006](0006-zero-dependencies-node-22.md) | Zero dependencies, and the published artifact is the source | accepted |
 | [0007](0007-scoped-package-name.md) | Published under a scope, because npm refuses the bare name | accepted |
 | [0008](0008-optional-agent-staging.md) | Optional agent-side staging, for a gauge that checks a batch | accepted |
+| [0009](0009-three-attempts-then-pause.md) | Three attempts, then the task is paused and a person is told | accepted |
 
 ## The rules
 

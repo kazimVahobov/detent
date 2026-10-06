@@ -112,6 +112,12 @@ export function createBranch(cwd, branch, start) {
   git(cwd, ['checkout', '--quiet', '-b', branch, `refs/heads/${start}`])
 }
 
+// Continue on a task branch that already exists — a paused task resumed.
+export function checkoutBranch(cwd, branch) {
+  assertAgentRef(branch)
+  git(cwd, ['checkout', '--quiet', branch])
+}
+
 // A branch without checking it out — for parking work when the task branch was
 // never created because the run died first.
 export function createRef(cwd, branch, start) {
