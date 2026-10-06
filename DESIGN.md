@@ -705,6 +705,15 @@ output the agent would be handed — before an agent is ever held to it. A
 repository with no stages in the profile is reported as having no lock, never
 as green.
 
+`doctor` reports each finding as passed (✓), failed (✗), worth a look (!) or
+not checkable (·) — condition 8, one person per workspace, is a convention no
+scan can see, and is said to be one rather than skipped. A failure is anything
+that would stop a run or make it skip a repository; worth a look is anything
+that lets a run go ahead with less than it could have: no gauge, no reviewer, a
+submodule outside `neverCommit`, an `agent/dev` that tracks a remote. It
+exits 1 on a failure and writes nothing; where there is a command that fixes a
+finding, it prints the command.
+
 ### Three things `doctor` checks beyond the nine conditions
 
 - **no branch named exactly `agent`** — it makes the whole namespace

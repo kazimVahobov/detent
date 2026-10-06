@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { parseArgs } from 'node:util'
 import { ConfigError, loadProduct } from './core/product.mjs'
+import * as doctor from './core/commands/doctor.mjs'
 import * as gauge from './core/commands/gauge.mjs'
 import * as init from './core/commands/init.mjs'
 import * as recover from './core/commands/recover.mjs'
@@ -33,7 +34,7 @@ const COMMANDS = {
 }
 
 // Commands that exist, each a module: { options, run(product, positionals, values) }.
-const BUILT = { gauge, init, recover, run: runCommand, summary }
+const BUILT = { doctor, gauge, init, recover, run: runCommand, summary }
 
 function usage() {
   const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length))
