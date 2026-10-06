@@ -13,6 +13,7 @@ import * as dashboard from './core/commands/dashboard.mjs'
 import * as doctor from './core/commands/doctor.mjs'
 import * as gauge from './core/commands/gauge.mjs'
 import * as init from './core/commands/init.mjs'
+import * as promoteCommand from './core/commands/promote.mjs'
 import * as recover from './core/commands/recover.mjs'
 import * as runCommand from './core/commands/run.mjs'
 import * as summary from './core/commands/summary.mjs'
@@ -35,7 +36,7 @@ const COMMANDS = {
 }
 
 // Commands that exist, each a module: { options, run(product, positionals, values) }.
-const BUILT = { dashboard, doctor, gauge, init, recover, run: runCommand, summary }
+const BUILT = { dashboard, doctor, gauge, init, promote: promoteCommand, recover, run: runCommand, summary }
 
 function usage() {
   const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length))

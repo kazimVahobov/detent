@@ -385,6 +385,16 @@ task landed on `agent/dev` since the last promotion.
 | conflict | `merge --abort`, escalate — as everywhere |
 | interrupted | `detent recover` returns the repository to `agent/dev` with a clean tree |
 
+The batch is every task whose merge reached `agent/dev` since the last
+promotion, read from the `Task` trailers between the two branches. The merge
+is staged on a detached HEAD and the `promote` profile runs on that tree, so
+`agent/staging` moves only to a batch that was green together; the promotion
+commit names the tasks it carries and runs no hooks. The journal line's
+outcome is `passed`, `red`, `escalated` (a conflict), `skipped` or `error`, and
+red, conflict and error tell the developer. A staging branch with no promote
+stages still promotes, says the batch was not checked, and is not counted as a
+green batch.
+
 **Nothing is bisected.** A red batch means the combination broke; which task is
 at fault detent does not know and does not guess. Bisecting a batch is a
 different product, and a confident wrong answer here costs more than no answer

@@ -1,7 +1,7 @@
 // detent summary — pass rate, attempts, cost per pass, from the journal alone.
 
 import process from 'node:process'
-import { blindSpot, byModel, byRepo, readJournal, summarise } from '../journal.mjs'
+import { batches, blindSpot, byModel, byRepo, readJournal, summarise } from '../journal.mjs'
 
 export const options = { repo: { type: 'string' } }
 
@@ -9,7 +9,7 @@ export function run(product, _positionals, { repo }) {
   const { lines, unreadable } = readJournal(product.dir)
   const selected = repo ? lines.filter((l) => l.repo === repo) : lines
   const tasks = selected.filter((l) => l.kind === 'task')
-  const promotions = selected.length - tasks.length
+  const promotions = selected.filter((l) => l.kind === 'promote')
   const skipped = tasks.filter((l) => l.outcome === 'skipped').length
 
   if (tasks.length - skipped === 0) {
@@ -28,7 +28,14 @@ export function run(product, _positionals, { repo }) {
 
   const notes = []
   if (skipped) notes.push(`${skipped} ${skipped === 1 ? 'run was' : 'runs were'} skipped by the gate, and not counted`)
-  if (promotions) notes.push(`${promotions} promotion ${promotions === 1 ? 'line is' : 'lines are'} not summarised yet (build step 10)`)
+  if (promotions.length) {
+    const { checked, red } = batches(promotions)
+    process.stdout.write(
+      checked === 0
+        ? '\nred batch: no batch has been checked by a promote gauge yet\n'
+        : `\nred batch: ${red} of ${checked} ${checked === 1 ? 'batch' : 'batches'} came out red with every task in it green (${Math.round((red / checked) * 100)}%)\n`,
+    )
+  }
   if (unreadable) notes.push(`${unreadable} journal ${unreadable === 1 ? 'line' : 'lines'} could not be read`)
   if (tasks.some((l) => l.lock === 'absent')) notes.push('— in pass rate: a repository with no gauge has nothing to pass')
   if (notes.length) process.stdout.write(`\n${notes.map((n) => `  ${n}`).join('\n')}\n`)

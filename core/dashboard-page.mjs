@@ -167,6 +167,9 @@ function render(s) {
     tile('Green but not done', n.blindSpot.read ? pct(n.blindSpot.rejected / n.blindSpot.read) : '—', n.blindSpot.read ? n.blindSpot.rejected + ' of ' + n.blindSpot.read + ' green runs the reviewer read' : 'no run reviewed yet'),
     tile('Paused', String(s.queue.hold.length), s.queue.hold.length ? 'waiting for you' : 'nothing waiting'),
   )
+  if (n.batches.checked) {
+    figures.append(tile('Red batch', pct(n.batches.red / n.batches.checked), n.batches.red + ' of ' + n.batches.checked + ' batches red with every task green'))
+  }
 
   table(document.getElementById('repos'), [['Repository'], ['agent/dev'], ['Lock'], ['Now'], ['Agents']], s.repos.map((r) => [
     el('strong', {}, r.name),
