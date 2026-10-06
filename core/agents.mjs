@@ -1,0 +1,196 @@
+// The agents detent can run, behind one call (ADR 0010).
+//
+// Each adapter knows three things about its CLI: how to run it unattended and
+// non-interactively, how to hand it a prompt, and how to read what it printed.
+// Everything above this file sees the same result whichever agent ran.
+//
+// What a CLI does not report is null, never estimated: an invented model name
+// or cost would quietly corrupt every comparison built on the journal.
+
+import { spawn } from 'node:child_process'
+import process from 'node:process'
+
+export const AGENTS = {
+  // Claude Code: one JSON object on stdout.
+  claude: {
+    command: 'claude',
+    args: ({ model }) => ['-p', '--output-format', 'json', '--permission-mode', 'bypassPermissions', ...(model ? ['--model', model] : [])],
+    parse(stdout) {
+      const out = lastJson(stdout)
+      if (!out) return null
+      const usage = out.usage ?? {}
+      const models = Object.entries(out.modelUsage ?? {}).map(([name, u]) => [name, u.outputTokens ?? 0])
+      return {
+        ok: out.is_error === false && out.subtype === 'success',
+        message: typeof out.result === 'string' ? out.result : '',
+        actual: busiest(models),
+        usd: typeof out.total_cost_usd === 'number' ? out.total_cost_usd : null,
+        tokens: tokens(
+          sum(usage.input_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens),
+          usage.output_tokens,
+        ),
+        session: out.session_id ?? null,
+        error: out.is_error ? `${out.subtype ?? 'error'}${out.api_error_status ? ` (${out.api_error_status})` : ''}: ${out.result ?? ''}`.trim() : null,
+      }
+    },
+  },
+
+  // Codex: `codex exec --json` prints one JSON event per line. The prompt is
+  // read from stdin when it is given as "-".
+  codex: {
+    command: 'codex',
+    args: ({ model }) => ['exec', '--json', '--sandbox', 'workspace-write', '--color', 'never', ...(model ? ['--model', model] : []), '-'],
+    parse(stdout) {
+      const events = stdout.split('\n').flatMap((line) => {
+        try {
+          const event = JSON.parse(line)
+          return event && typeof event === 'object' ? [event] : []
+        } catch {
+          return []
+        }
+      })
+      if (events.length === 0) return null
+      let message = ''
+      let input = 0
+      let output = 0
+      let counted = false
+      let session = null
+      let error = null
+      for (const event of events) {
+        if (event.type === 'thread.started') session = event.thread_id ?? null
+        if (event.type === 'item.completed' && event.item?.type === 'agent_message') message = event.item.text ?? ''
+        if (event.type === 'turn.completed' && event.usage) {
+          counted = true
+          input += sum(event.usage.input_tokens, event.usage.cached_input_tokens)
+          output += event.usage.output_tokens ?? 0
+        }
+        if (event.type === 'turn.failed') error = event.error?.message ?? 'turn failed'
+        if (event.type === 'error') error = event.message ?? 'error'
+      }
+      return {
+        ok: error === null,
+        message,
+        // codex exec does not name the model that ran in its events.
+        actual: null,
+        usd: null,
+        tokens: counted ? tokens(input, output) : null,
+        session,
+        error,
+      }
+    },
+  },
+
+  // Gemini CLI: one JSON object. --prompt is required for headless mode and is
+  // appended to stdin, so it carries only a pointer to the real prompt.
+  gemini: {
+    command: 'gemini',
+    args: ({ model }) => [
+      '--output-format', 'json',
+      '--approval-mode', 'yolo',
+      '--skip-trust',
+      ...(model ? ['--model', model] : []),
+      '--prompt', 'The task is above. Work on it in this repository.',
+    ],
+    parse(stdout) {
+      const out = lastJson(stdout)
+      if (!out) return null
+      const models = Object.entries(out.stats?.models ?? {}).map(([name, m]) => [name, m?.tokens?.total ?? 0])
+      let input = 0
+      let output = 0
+      for (const [, m] of Object.entries(out.stats?.models ?? {})) {
+        input += m?.tokens?.prompt ?? 0
+        output += m?.tokens?.candidates ?? 0
+      }
+      return {
+        ok: !out.error,
+        message: typeof out.response === 'string' ? out.response : '',
+        actual: busiest(models),
+        usd: null,
+        tokens: models.length > 0 ? tokens(input, output) : null,
+        session: out.session_id ?? null,
+        error: out.error ? (out.error.message ?? JSON.stringify(out.error)) : null,
+      }
+    },
+  },
+}
+
+export function invoke(role, { cwd, prompt, env = process.env }) {
+  const adapter = AGENTS[role.agent]
+  if (!adapter) throw new Error(`unknown agent "${role.agent}"`)
+  const requested = role.model ?? null
+
+  return new Promise((resolve) => {
+    const started = Date.now()
+    let stdout = ''
+    let stderr = ''
+    const child = spawn(adapter.command, adapter.args({ model: role.model }), { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] })
+    child.stdout.on('data', (chunk) => (stdout += chunk))
+    child.stderr.on('data', (chunk) => (stderr += chunk))
+    child.stdin.on('error', () => {}) // an agent that exits without reading is reported below
+    child.stdin.end(prompt)
+
+    let settled = false
+    const finish = (r) => {
+      if (settled) return
+      settled = true
+      resolve({
+        agent: role.agent,
+        ok: r.ok ?? false,
+        message: r.message ?? '',
+        model: { requested, actual: r.actual ?? null },
+        cost: { usd: r.usd ?? null, tokens: r.tokens ?? null },
+        session: r.session ?? null,
+        error: r.error ?? null,
+        ms: Date.now() - started,
+      })
+    }
+
+    child.on('error', (error) => {
+      finish({ error: error.code === 'ENOENT' ? `${adapter.command} is not installed, or not on PATH` : error.message })
+    })
+    child.on('close', (code, signal) => {
+      const parsed = adapter.parse(stdout)
+      const exit = signal ? `killed by ${signal}` : `exit code ${code}`
+      if (!parsed) return finish({ error: `${adapter.command} printed nothing detent can read (${exit})${tail(stderr)}` })
+      if (code !== 0 && parsed.ok) return finish({ ...parsed, ok: false, error: `${adapter.command} finished with ${exit}${tail(stderr)}` })
+      finish(parsed)
+    })
+  })
+}
+
+function lastJson(text) {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    // Some CLIs print a line of their own before the result.
+    const start = trimmed.lastIndexOf('\n{')
+    if (start === -1) return null
+    try {
+      return JSON.parse(trimmed.slice(start + 1))
+    } catch {
+      return null
+    }
+  }
+}
+
+// The model that did most of the work, when a CLI used more than one — a
+// subagent on a small model should not be reported as the model that ran.
+function busiest(models) {
+  if (models.length === 0) return null
+  return models.reduce((best, entry) => (entry[1] > best[1] ? entry : best))[0]
+}
+
+function sum(...values) {
+  return values.reduce((total, value) => total + (typeof value === 'number' ? value : 0), 0)
+}
+
+function tokens(input, output) {
+  return { input: input ?? 0, output: output ?? 0 }
+}
+
+function tail(stderr) {
+  const text = stderr.trim()
+  return text ? `: ${text.split('\n').slice(-5).join('\n')}` : ''
+}
