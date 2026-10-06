@@ -131,7 +131,7 @@ test('red on the last attempt: paused in hold/, work parked with its outcome, th
   assert.equal(n.sent[0].outcome, 'escalated')
   assert.equal(n.sent[0].branch, BRANCH)
   assert.match(n.sent[0].message, /task 0042 \(acme-api\) is paused — escalated: 3 identical failures on test/)
-  assert.match(n.sent[0].message, /move tasks\/hold\/0042-wallet-endpoint\.md back to todo\//)
+  assert.match(n.sent[0].message, /The work is on agent\/task-0042-wallet-endpoint; move tasks\/hold\/0042-wallet-endpoint\.md back to todo\/ to resume\./)
 
   assert.equal(
     sh(s.repoDir, 'log', '-1', '--format=%B', BRANCH),
@@ -362,8 +362,23 @@ test('a conflict with agent/dev is aborted, never resolved, and the task paused 
   assert.equal(result.reason, 'merging into agent/dev conflicts in notes.txt')
   assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev'), devTip)
   assert.ok(sh(s.repoDir, 'branch', '--list', BRANCH), 'the branch is kept for a person to look at')
-  assert.match(n.sent[0].message, /conflicts in notes\.txt/)
+  assert.match(n.sent[0].message, /conflicts in notes\.txt\. Resolve it on the task branch — git switch agent\/task-0042-wallet-endpoint && git merge agent\/dev — then move tasks\/hold\/0042-wallet-endpoint\.md back to todo\/\./)
+  assert.deepEqual(result.conflicts, ['notes.txt'])
   assertInvariant(s.repoDir, s.before, s.product)
+
+  // The person's step: bring agent/dev in and resolve, on the task branch.
+  sh(s.repoDir, 'switch', '--quiet', BRANCH)
+  assert.throws(() => sh(s.repoDir, 'merge', '--quiet', 'agent/dev'))
+  writeFileSync(join(s.repoDir, 'notes.txt'), 'from 0042 and 0043\n')
+  sh(s.repoDir, 'commit', '--quiet', '-am', 'resolve the conflict with 0043')
+  sh(s.repoDir, 'switch', '--quiet', 'agent/dev')
+  execFileSync('mv', [join(s.dir, 'tasks', 'hold', '0042-wallet-endpoint.md'), join(s.dir, 'tasks', 'todo')])
+
+  const [again] = readQueue(s.dir, s.product).filter((t) => t.folder === 'todo')
+  const prompts = agent((cwd) => writeFileSync(join(cwd, 'value.txt'), 'ok\n'))
+  const finished = await runTask(s.product, s.repo, again, { invoke: prompts.invoke, notify: notifier().notify })
+  assert.equal(finished.outcome, 'passed', finished.reason)
+  assert.equal(show(s.repoDir, 'agent/dev', 'notes.txt'), 'from 0042 and 0043')
 })
 
 test('merge hooks do not run', async () => {

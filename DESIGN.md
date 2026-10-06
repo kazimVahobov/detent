@@ -262,6 +262,13 @@ to `todo/` resumes it on the same branch with a fresh budget and whatever the
 person added to the task. `failed/` is where a person puts a task they abandon;
 detent never moves anything there.
 
+A **conflict** is the one pause a resume cannot get past on its own. detent
+never resolves a conflict, and the agent is not let into a merge either — a
+resolution is a judgement about two pieces of work, one of which the agent has
+never seen. So the notification names the paths and the person's step: merge
+`agent/dev` into the task branch, resolve, commit, and move the task back to
+`todo/`. The next run lands it.
+
 `notify` in `product.json` is a shell command. It gets the message on stdin and
 `DETENT_TASK`, `DETENT_REPO`, `DETENT_OUTCOME`, `DETENT_BRANCH` and
 `DETENT_MESSAGE` in its environment — enough to reach a chat, a phone or a mail

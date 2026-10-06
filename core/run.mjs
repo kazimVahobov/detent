@@ -76,6 +76,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
       const land = async (subject, exitGauge) => {
         const merging = beginMerge(cwd, integration, branch)
         if (merging.conflicts) {
+          record.conflicts = merging.conflicts
           return pause('escalated', `merging into ${integration} conflicts in ${merging.conflicts.join(', ')}`)
         }
         const gauge = await runGauge(repo.gauge.merge, { cwd, profile: 'merge' })
@@ -168,7 +169,14 @@ function settle(product, task, record, notify) {
     moveTask(product.dir, task, 'done')
   } else if (record.outcome === 'escalated' || record.outcome === 'error') {
     moveTask(product.dir, task, 'hold')
-    const message = `task ${record.task} (${record.repo}) is paused — ${record.outcome}: ${record.reason}. The work is on ${record.branch}; move tasks/hold/${task.id}-${task.slug}.md back to todo/ to resume.`
+    const file = `tasks/hold/${task.id}-${task.slug}.md`
+    // A conflict is the one pause a resume cannot get past by itself: detent
+    // never resolves one, and the agent is not let into a merge. So the person
+    // is told the step that is theirs.
+    const next = record.conflicts
+      ? `Resolve it on the task branch — git switch ${record.branch} && git merge ${product.branches.integration} — then move ${file} back to todo/.`
+      : `The work is on ${record.branch}; move ${file} back to todo/ to resume.`
+    const message = `task ${record.task} (${record.repo}) is paused — ${record.outcome}: ${record.reason}. ${next}`
     record.notified = notify(product, { task: record.task, repo: record.repo, outcome: record.outcome, branch: record.branch, message })
   }
   appendJournal(product.dir, record)

@@ -52,6 +52,10 @@ Notable changes, newest first. The format follows
   repository and per agent and model. A repository with no gauge shows a dash,
   not a pass rate.
 
+- A task paused on a merge conflict says what to do about it: the notification
+  names the paths and the command that brings `agent/dev` into the task branch,
+  and once a person has resolved it there, resuming lands the task.
+
 ### Changed
 
 - A role in `models` names its agent: `{ "agent": "claude" | "codex" |
