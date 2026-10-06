@@ -104,4 +104,11 @@ async function main(argv) {
   return 70
 }
 
+// A reader that stops reading — `detent summary | head` — is not an error: the
+// output it wanted has been written.
+process.stdout.on('error', (error) => {
+  if (error.code === 'EPIPE') process.exit(0)
+  throw error
+})
+
 process.exitCode = await main(process.argv.slice(2))

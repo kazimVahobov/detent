@@ -15,6 +15,8 @@ Notable changes, newest first. The format follows
 
 ### Fixed
 
+- `detent summary | head` and every other command piped into a reader that
+  stops early end quietly, not with an EPIPE stack trace.
 - Two tasks running at once no longer trip each other's boundary check: the
   journal may grow by lines detent appended, and by nothing else.
 
