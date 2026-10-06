@@ -228,6 +228,16 @@ justifies running an acceptance pass at all.
 Failed work never reaches `agent/dev`, so the next task in that repository
 branches from a clean base and does not inherit someone else's mess.
 
+### Landing
+
+The merge into `agent/dev` is built on a **detached HEAD** and checked there:
+the `merge` profile runs on the merged tree, which is what will actually land,
+and `agent/dev` moves to the merge commit only when that is green. A red merge
+gauge or a conflict leaves `agent/dev` exactly where it was — nothing to revert,
+because nothing moved — and pauses the task with its green commit kept on its
+branch. The merge commit runs no hooks and carries the `Task` trailer and both
+gauges. A landed task's branch is deleted; its commits live on in `agent/dev`.
+
 ### The agent's turn
 
 The agent is given the task body and nothing of the frontmatter, the rules of

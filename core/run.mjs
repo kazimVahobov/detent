@@ -1,7 +1,8 @@
-// One task, from its file to a commit on its task branch (build step 4).
+// One task, from its file to agent/dev (build steps 4 and 5).
 //
 //   the agent works → the gauge runs on its way out
-//     green            → one commit on the task branch
+//     green            → one commit on the task branch, then the merge into
+//                        agent/dev, behind the merge profile
 //     red              → the agent is handed the failure and goes back in
 //     red, last attempt, agent error, nothing changed
 //                      → the work is parked, the task paused, a person told
@@ -10,7 +11,7 @@
 // the journal (step 6) is appending it.
 
 import { formatGauge, runGauge } from './gauge.mjs'
-import { git, setRef, snapshotOnto, snapshotRefs, tip } from './git.mjs'
+import { abortMerge, beginMerge, concludeMerge, deleteBranch, git, setRef, snapshotOnto, snapshotRefs, tip } from './git.mjs'
 import { judge } from './lock.mjs'
 import { notify as defaultNotify } from './notify.mjs'
 import { commitSubject, implementPrompt } from './prompt.mjs'
@@ -68,6 +69,37 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
         )
       }
 
+      // Build step 5. The merge is staged on a detached HEAD and checked there,
+      // so agent/dev only ever moves to a merged tree whose merge gauge is
+      // green; red or a conflict leaves it exactly where it was.
+      const land = async (subject, exitGauge) => {
+        const merging = beginMerge(cwd, integration, branch)
+        if (merging.conflicts) {
+          return pause('escalated', `merging into ${integration} conflicts in ${merging.conflicts.join(', ')}`)
+        }
+        const gauge = await runGauge(repo.gauge.merge, { cwd, profile: 'merge' })
+        if (gauge.lock === 'enforced' && !gauge.green) {
+          abortMerge(cwd)
+          record.gauge = { profile: 'merge', failedStage: gauge.failed.stage }
+          return pause('escalated', `the merge gauge is red on ${gauge.failed.stage}`, gauge)
+        }
+        record.commit = concludeMerge(
+          cwd,
+          integration,
+          start,
+          [
+            `merge: task ${task.id} — ${subject}`,
+            '',
+            `Task: ${task.id}`,
+            `Gauge: ${formatGauge(exitGauge)} (exit) · ${formatGauge(gauge)} (merge)`,
+            agentTrailer(record),
+          ].join('\n'),
+        )
+        deleteBranch(cwd, branch)
+        record.outcome = 'passed'
+        record.merged = true
+      }
+
       for (let attempt = 1; attempt <= limit; attempt += 1) {
         setAttempt(attempt)
         record.attempts = attempt
@@ -104,9 +136,8 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
             setRef(cwd, branch, before, 'drop an empty commit')
             return pause('error', 'the gauge is green but the agent changed nothing')
           }
-          record.outcome = 'committed'
           record.commit = tip(cwd, branch)
-          return
+          return land(subject, gauge)
         }
 
         record.gauge.failedStage = verdict.stage
@@ -131,7 +162,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
 
 // Where the task file goes, and who hears about it.
 function settle(product, task, record, notify) {
-  if (record.outcome === 'committed') {
+  if (record.outcome === 'passed') {
     moveTask(product.dir, task, 'done')
   } else if (record.outcome === 'escalated' || record.outcome === 'error') {
     moveTask(product.dir, task, 'hold')

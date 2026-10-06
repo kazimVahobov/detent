@@ -40,6 +40,11 @@ Notable changes, newest first. The format follows
   agent turn: `agent/dev` is restored if the agent moved it, a moved human ref
   is named and left alone.
 
+- Build step 5: a green task lands on `agent/dev` as one merge commit, built
+  on a detached HEAD and held behind the `merge` profile run on the merged
+  tree, so `agent/dev` never sees a red merge. A conflict is aborted, named and
+  paused, never resolved.
+
 ### Changed
 
 - A role in `models` names its agent: `{ "agent": "claude" | "codex" |

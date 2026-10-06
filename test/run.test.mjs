@@ -52,27 +52,32 @@ function notifier() {
   return { sent, notify: (product, details) => (sent.push(details), { sent: true, via: 'test' }) }
 }
 
-test('green on the first attempt: one commit on the task branch, the task done, agent/dev untouched', async () => {
+test('green on the first attempt: one commit, merged into agent/dev, the branch deleted, the task done', async () => {
   const s = setup()
   const a = agent(write('ok'))
   const n = notifier()
   const result = await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: n.notify })
 
-  assert.equal(result.outcome, 'committed')
+  assert.equal(result.outcome, 'passed')
+  assert.equal(result.merged, true)
   assert.equal(result.attempts, 1)
   assert.equal(result.lock, 'enforced')
   assert.equal(result.branch, BRANCH)
-  assert.equal(result.commit, sh(s.repoDir, 'rev-parse', BRANCH))
+  assert.equal(result.commit, sh(s.repoDir, 'rev-parse', 'agent/dev'), 'the commit recorded is the one that landed')
   assert.deepEqual(result.models.implement, { agent: 'claude', requested: 'claude-opus-5', actual: 'claude-opus-5' })
   assert.deepEqual(result.cost, { usd: 0.25, tokens: { input: 1000, output: 100 } })
   assert.equal(result.kind, 'task')
   assert.ok(result.started <= result.finished)
 
-  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%B', BRANCH), 'feat(wallet): balance endpoint\n\nTask: 0042\nGauge: lint ✓ test ✓ (1 attempt)\nAgent: claude (claude-opus-5)')
-  assert.equal(show(s.repoDir, BRANCH, 'value.txt'), 'ok')
-  assert.equal(sh(s.repoDir, 'rev-list', '--count', `agent/dev..${BRANCH}`), '1')
+  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev^2'), 'feat(wallet): balance endpoint\n\nTask: 0042\nGauge: lint ✓ test ✓ (1 attempt)\nAgent: claude (claude-opus-5)')
+  assert.equal(
+    sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev').trimEnd(),
+    'merge: task 0042 — feat(wallet): balance endpoint\n\nTask: 0042\nGauge: lint ✓ test ✓ (exit) · no gauge declared (merge)\nAgent: claude (claude-opus-5)',
+  )
+  assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev^1'), sh(s.repoDir, 'rev-parse', 'dev'), 'one merge commit on top of where agent/dev was')
+  assert.equal(show(s.repoDir, 'agent/dev', 'value.txt'), 'ok')
+  assert.equal(sh(s.repoDir, 'branch', '--list', BRANCH), '', 'a passed task branch is deleted')
   assertInvariant(s.repoDir, s.before, s.product)
-  assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev'), sh(s.repoDir, 'rev-parse', 'dev'), 'merging is step 5')
   assert.ok(existsSync(join(s.dir, 'tasks', 'done', '0042-wallet-endpoint.md')))
   assert.deepEqual(n.sent, [])
 })
@@ -96,13 +101,13 @@ test('red, then green: the retry is handed the failed stage and its output', asy
   const s = setup()
   const a = agent(write('nearly'), write('ok'))
   const result = await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: notifier().notify })
-  assert.equal(result.outcome, 'committed')
+  assert.equal(result.outcome, 'passed')
   assert.equal(result.attempts, 2)
   assert.deepEqual(result.cost, { usd: 0.5, tokens: { input: 2000, output: 200 } }, 'cost is per pass, every attempt counted')
   assert.match(a.prompts[1], /Attempt 2 of 3\. Your previous attempt did not leave the gauge green\./)
   assert.match(a.prompts[1], /stage "test"/)
   assert.match(a.prompts[1], /value is nearly/)
-  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', BRANCH), /^Gauge: lint ✓ test ✓ \(2 attempts\)$/m)
+  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev^2'), /^Gauge: lint ✓ test ✓ \(2 attempts\)$/m)
   assertInvariant(s.repoDir, s.before, s.product)
 })
 
@@ -147,10 +152,10 @@ test('a paused task moved back to todo/ resumes on its branch, and the agent is 
     write('ok')(cwd)
   })
   const result = await runTask(s.product, s.repo, task, { invoke: a.invoke, notify: notifier().notify })
-  assert.equal(result.outcome, 'committed')
+  assert.equal(result.outcome, 'passed')
   assert.equal(result.resumed, true)
   assert.match(a.prompts[0], /This task was paused and is being resumed/)
-  assert.equal(sh(s.repoDir, 'rev-parse', `${BRANCH}~1`), parked)
+  assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev^2~1'), parked, 'the resumed work builds on the parked attempt')
   assertInvariant(s.repoDir, s.before, s.product)
 })
 
@@ -188,9 +193,9 @@ test('an agent that committed its own work still gets detent\'s commit, with the
     sh(cwd, 'commit', '--quiet', '-m', 'my own message')
   })
   const result = await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: notifier().notify })
-  assert.equal(result.outcome, 'committed')
-  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', BRANCH), /^Task: 0042$/m)
-  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%s', `${BRANCH}~1`), 'my own message')
+  assert.equal(result.outcome, 'passed')
+  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev^2'), /^Task: 0042$/m)
+  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%s', 'agent/dev^2~1'), 'my own message')
 })
 
 test('an agent that commits to agent/dev has it restored, and its commits kept on a branch of their own', async () => {
@@ -231,20 +236,20 @@ test('neverCommit paths are left out of the commit', async () => {
     writeFileSync(join(cwd, 'shared-docs', 'pointer'), 'moved\n')
   })
   const result = await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: notifier().notify })
-  assert.equal(result.outcome, 'committed')
-  assert.equal(show(s.repoDir, BRANCH, 'value.txt'), 'ok')
-  assert.throws(() => show(s.repoDir, BRANCH, 'shared-docs/pointer'))
+  assert.equal(result.outcome, 'passed')
+  assert.equal(show(s.repoDir, 'agent/dev', 'value.txt'), 'ok')
+  assert.throws(() => show(s.repoDir, 'agent/dev', 'shared-docs/pointer'))
   assert.match(a.prompts[0], /Do not change "shared-docs"/)
   assertInvariant(s.repoDir, s.before, s.product)
 })
 
-test('no gauge: committed with lock absent, never called green', async () => {
+test('no gauge: landed with lock absent, never called green', async () => {
   const s = setup({ gauge: undefined })
   const a = agent(write('anything'))
   const result = await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: notifier().notify })
-  assert.equal(result.outcome, 'committed')
+  assert.equal(result.outcome, 'passed')
   assert.equal(result.lock, 'absent')
-  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', BRANCH), /^Gauge: no gauge declared \(1 attempt\)$/m)
+  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev^2'), /^Gauge: no gauge declared \(1 attempt\)$/m)
   assert.match(a.prompts[0], /declares no gauge, so nothing checks your work/)
 })
 
@@ -252,7 +257,7 @@ test('a malformed Commit: line falls back to a subject detent writes', async () 
   const s = setup()
   const a = agent((cwd) => (write('ok')(cwd), answer('I did it.\nCommit: Fixed stuff.')))
   await runTask(s.product, s.repo, s.task, { invoke: a.invoke, notify: notifier().notify })
-  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%s', BRANCH), 'feat: task 0042, wallet endpoint')
+  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%s', 'agent/dev^2'), 'feat: task 0042, wallet endpoint')
 })
 
 test('a gate refusal skips the task and leaves it in todo/', async () => {
@@ -285,8 +290,8 @@ printf '%s' '${JSON.stringify({ type: 'result', subtype: 'success', is_error: fa
     encoding: 'utf8',
     env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
   })
-  assert.match(out, /^0042 {2}committed on agent\/task-0042-wallet-endpoint \([0-9a-f]{7}\), 1 attempt, \$0\.30$/m)
-  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%s', BRANCH), 'feat(wallet): from the cli')
+  assert.match(out, /^0042 {2}passed — merged into agent\/dev \([0-9a-f]{7}\), 1 attempt, \$0\.30$/m)
+  assert.equal(sh(s.repoDir, 'log', '-1', '--format=%s', 'agent/dev^2'), 'feat(wallet): from the cli')
   assertInvariant(s.repoDir, s.before, s.product)
 })
 
@@ -301,4 +306,70 @@ test('detent run refuses to start when a repository has no implementing agent', 
   assert.equal(error.status, 2)
   assert.match(error.stderr, /no implementing agent for acme-api — set models\.implement/)
   assert.deepEqual(snapshotRefs(s.repoDir), s.before)
+})
+
+// --- build step 5: landing on agent/dev --------------------------------------
+
+test('the merge gauge runs on the merged tree; red leaves agent/dev where it was and pauses the task', async () => {
+  const s = setup({ gauge: { ...GAUGE, merge: [{ stage: 'build', command: 'test -f value.txt && test -f README.md && echo "build broke" && exit 1' }] } })
+  const devTip = sh(s.repoDir, 'rev-parse', 'agent/dev')
+  const n = notifier()
+  const result = await runTask(s.product, s.repo, s.task, { invoke: agent(write('ok')).invoke, notify: n.notify })
+  assert.equal(result.outcome, 'escalated')
+  assert.equal(result.reason, 'the merge gauge is red on build')
+  assert.deepEqual(result.gauge, { profile: 'merge', failedStage: 'build' })
+  assert.equal(result.merged, false)
+  assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev'), devTip, 'agent/dev never saw the red merge')
+  assert.equal(show(s.repoDir, BRANCH, 'value.txt'), 'ok', 'the green task commit is kept on its branch')
+  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', BRANCH), /^Gauge: lint ✓ test ✓ \(1 attempt\)$/m, 'nothing parked on top of it')
+  assert.ok(existsSync(join(s.dir, 'tasks', 'hold', '0042-wallet-endpoint.md')))
+  assert.equal(n.sent.length, 1)
+  assertInvariant(s.repoDir, s.before, s.product)
+})
+
+test('a green merge gauge is part of the merge commit', async () => {
+  const s = setup({ gauge: { ...GAUGE, merge: [{ stage: 'build', command: 'test -f value.txt' }] } })
+  const result = await runTask(s.product, s.repo, s.task, { invoke: agent(write('ok')).invoke, notify: notifier().notify })
+  assert.equal(result.outcome, 'passed')
+  assert.match(sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev'), /^Gauge: lint ✓ test ✓ \(exit\) · build ✓ \(merge\)$/m)
+})
+
+test('a conflict with agent/dev is aborted, never resolved, and the task paused with the paths named', async () => {
+  const s = setup()
+  // Task 0042 is paused; meanwhile task 0043 lands a different value.txt.
+  await runTask(s.product, s.repo, s.task, { invoke: agent(write('no'), write('no'), write('no')).invoke, notify: notifier().notify })
+  writeFileSync(
+    join(s.dir, 'tasks', 'todo', '0043-other.md'),
+    '---\nid: 0043\nrepo: acme-api\n---\n\n# Acceptance criteria\n\n- [ ] value.txt says ok\n',
+  )
+  const other = readQueue(s.dir, s.product).find((t) => t.id === '0043')
+  const landed = await runTask(s.product, s.repo, other, {
+    invoke: agent((cwd) => (write('ok')(cwd), writeFileSync(join(cwd, 'notes.txt'), 'from 0043\n'))).invoke,
+    notify: notifier().notify,
+  })
+  assert.equal(landed.outcome, 'passed')
+  const devTip = sh(s.repoDir, 'rev-parse', 'agent/dev')
+
+  execFileSync('mv', [join(s.dir, 'tasks', 'hold', '0042-wallet-endpoint.md'), join(s.dir, 'tasks', 'todo')])
+  const [resumed] = readQueue(s.dir, s.product).filter((t) => t.folder === 'todo')
+  const n = notifier()
+  const result = await runTask(s.product, s.repo, resumed, {
+    invoke: agent((cwd) => (write('ok')(cwd), writeFileSync(join(cwd, 'notes.txt'), 'from 0042\n'))).invoke,
+    notify: n.notify,
+  })
+  assert.equal(result.outcome, 'escalated')
+  assert.equal(result.reason, 'merging into agent/dev conflicts in notes.txt')
+  assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev'), devTip)
+  assert.ok(sh(s.repoDir, 'branch', '--list', BRANCH), 'the branch is kept for a person to look at')
+  assert.match(n.sent[0].message, /conflicts in notes\.txt/)
+  assertInvariant(s.repoDir, s.before, s.product)
+})
+
+test('merge hooks do not run', async () => {
+  const s = setup()
+  for (const hook of ['pre-merge-commit', 'commit-msg', 'pre-commit']) {
+    writeFileSync(join(s.repoDir, '.git', 'hooks', hook), '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+  }
+  const result = await runTask(s.product, s.repo, s.task, { invoke: agent(write('ok')).invoke, notify: notifier().notify })
+  assert.equal(result.outcome, 'passed')
 })
