@@ -1,8 +1,9 @@
-// One task, from its file to agent/dev (build steps 4 and 5).
+// One task, from its file to agent/dev (build steps 4, 5 and 11).
 //
 //   the agent works → the gauge runs on its way out
-//     green            → one commit on the task branch, then the merge into
-//                        agent/dev, behind the merge profile
+//     green            → one commit on the task branch, the acceptance pass,
+//                        then the merge into agent/dev behind the merge profile
+//     a doubt          → rejected: the task paused with the doubts
 //     red              → the agent is handed the failure and goes back in
 //     red, last attempt, agent error, nothing changed
 //                      → the work is parked, the task paused, a person told
@@ -14,14 +15,15 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { formatGauge, runGauge } from './gauge.mjs'
-import { abortMerge, beginMerge, concludeMerge, deleteBranch, git, setRef, snapshotOnto, snapshotRefs, tip } from './git.mjs'
+import { abortMerge, beginMerge, concludeMerge, currentBranch, deleteBranch, forceCheckout, git, isClean, setRef, snapshotOnto, snapshotRefs, tip } from './git.mjs'
+import { acceptancePrompt, parseVerdict, taskDiff } from './acceptance.mjs'
 import { judge } from './lock.mjs'
 import { notify as defaultNotify } from './notify.mjs'
 import { commitSubject, implementPrompt } from './prompt.mjs'
 import { moveTask, taskBranch } from './task.mjs'
 import { withTask } from './workspace.mjs'
 import { invoke as defaultInvoke } from './agents.mjs'
-import { JOURNAL_FILE, appendJournal } from './journal.mjs'
+import { JOURNAL_FILE, appendJournal, lastRun } from './journal.mjs'
 import { PRODUCT_FILE } from './product.mjs'
 
 export async function runTask(product, repo, task, { invoke = defaultInvoke, notify = defaultNotify, now = () => new Date() } = {}) {
@@ -46,9 +48,12 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
     models: { implement: { agent: role.agent, requested: role.model ?? null, actual: null } },
     cost: { usd: null, tokens: null },
     branch: taskBranch(product, task),
+    acceptance: { verdict: repo.models.accept ? null : 'absent', doubts: [], cost: null },
     commit: null,
     merged: false,
   }
+  // Why the task stopped last time, for an agent picking it up again.
+  const previous = lastRun(product.dir, task.id)
 
   let ran
   try {
@@ -100,6 +105,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
             `Task: ${task.id}`,
             `Gauge: ${formatGauge(exitGauge)} (exit) · ${formatGauge(gauge)} (merge)`,
             agentTrailer(record),
+            acceptanceTrailer(record),
           ].join('\n'),
         )
         deleteBranch(cwd, branch)
@@ -107,11 +113,78 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
         record.merged = true
       }
 
+      // Build step 11. The reviewer runs read-only on the committed branch and
+      // may only demote: false means the task stops here, true means nothing
+      // was raised and the machine-checked green stands.
+      const review = async () => {
+        const accept = repo.models.accept
+        if (!accept) return true
+        record.models.accept = { agent: accept.agent, requested: accept.model ?? null, actual: null }
+        record.acceptance.cost = { usd: null, tokens: null }
+        const committed = tip(cwd, branch)
+        const { diff, truncated } = taskDiff(cwd, start, branch)
+        const answer = await invoke(accept, {
+          cwd,
+          readOnly: true,
+          prompt: acceptancePrompt({ task, repo, branch, base: integration, diff, truncated }),
+        })
+        if (answer.model.actual) record.models.accept.actual = answer.model.actual
+        addCost(record.acceptance.cost, answer, true)
+        addCost(record.cost, answer, false)
+
+        // Read-only is the CLI's promise; it is checked rather than trusted.
+        // What a reviewer wrote is not work, so it is discarded, not parked.
+        const breach = checkBoundary(cwd, { integration, start, branch, watched, judges, productDir: product.dir })
+        const moved = tip(cwd, branch) !== committed
+        if (moved) setRef(cwd, branch, committed, 'undo what the acceptance pass committed')
+        if (moved || !isClean(cwd) || currentBranch(cwd) !== branch) forceCheckout(cwd, branch)
+        if (breach || moved) {
+          pause('error', `the acceptance pass changed the repository${breach ? ` — ${breach}` : ''}`)
+          return false
+        }
+        if (!answer.ok) {
+          pause('error', `the acceptance pass failed: ${answer.error}`)
+          return false
+        }
+
+        const { verdict, doubts } = parseVerdict(answer.message)
+        record.acceptance.verdict = verdict
+        record.acceptance.doubts = doubts
+        if (!verdict) {
+          // Silence is not the absence of doubt.
+          pause('error', 'the acceptance pass gave no verdict detent can read')
+          return false
+        }
+        if (verdict === 'rejected') {
+          record.outcome = 'rejected'
+          record.reason = `the acceptance pass raised ${doubts.length === 1 ? 'a doubt' : `${doubts.length} doubts`}: ${doubts.join('; ')}`
+          snapshotOnto(
+            cwd,
+            branch,
+            [
+              `wip(${task.slug}): rejected by the acceptance pass`,
+              '',
+              `Task: ${task.id}`,
+              `Outcome: rejected — the gauge is green and the task is not done`,
+              ...doubts.map((doubt) => `Doubt: ${doubt}`),
+              agentTrailer(record),
+              acceptanceTrailer(record),
+            ].join('\n'),
+            { allowEmpty: true },
+          )
+          return false
+        }
+        return true
+      }
+
       for (let attempt = 1; attempt <= limit; attempt += 1) {
         setAttempt(attempt)
         record.attempts = attempt
 
-        const answer = await invoke(role, { cwd, prompt: implementPrompt({ task, repo, branch, attempt, limit, resumed, feedback }) })
+        const answer = await invoke(role, {
+          cwd,
+          prompt: implementPrompt({ task, repo, branch, attempt, limit, resumed, feedback, previous: resumed ? previous : null }),
+        })
         account(record, answer)
 
         // The agent has a shell, so the boundary is checked after it, not
@@ -144,6 +217,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
             return pause('error', 'the gauge is green but the agent changed nothing')
           }
           record.commit = tip(cwd, branch)
+          if (!(await review())) return
           return land(subject, gauge)
         }
 
@@ -172,7 +246,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
 function settle(product, task, record, notify) {
   if (record.outcome === 'passed') {
     moveTask(product.dir, task, 'done')
-  } else if (record.outcome === 'escalated' || record.outcome === 'error') {
+  } else if (['escalated', 'rejected', 'error'].includes(record.outcome)) {
     moveTask(product.dir, task, 'hold')
     const file = `tasks/hold/${task.id}-${task.slug}.md`
     // A conflict is the one pause a resume cannot get past by itself: detent
@@ -190,10 +264,12 @@ function settle(product, task, record, notify) {
 
 function account(record, answer) {
   if (answer.model.actual) record.models.implement.actual = answer.model.actual
-  const cost = record.cost
-  const first = record.attempts === 1
-  // Dollars only if every attempt reported them: a partial sum would read as
-  // a total and be smaller than the truth.
+  addCost(record.cost, answer, record.attempts === 1)
+}
+
+// Dollars only if every call reported them: a partial sum would read as a
+// total and be smaller than the truth.
+function addCost(cost, answer, first) {
   cost.usd = answer.cost.usd === null || (!first && cost.usd === null) ? null : round((cost.usd ?? 0) + answer.cost.usd)
   if (answer.cost.tokens) {
     cost.tokens = {
@@ -207,6 +283,13 @@ function agentTrailer(record) {
   const { agent, requested, actual } = record.models.implement
   const model = actual ?? requested
   return `Agent: ${agent}${model ? ` (${model})` : ''}`
+}
+
+function acceptanceTrailer(record) {
+  const accept = record.models.accept
+  if (!accept) return 'Acceptance: none declared'
+  const model = accept.actual ?? accept.requested
+  return `Acceptance: ${accept.agent}${model ? ` (${model})` : ''} — ${record.acceptance.verdict === 'accepted' ? 'no doubts' : record.acceptance.verdict}`
 }
 
 // Branches and tags outside the namespace: what an agent with a shell could

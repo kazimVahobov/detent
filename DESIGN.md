@@ -420,6 +420,32 @@ judgement may only raise a doubt and send the task to a person. Otherwise
 "proven" quietly becomes "a second model agreed", and the whole thing is
 theatre.
 
+How it runs:
+
+- **After the green commit, before the merge.** The reviewer is `models.accept`,
+  run in its CLI's **read-only mode** — Claude Code in plan mode, Codex in a
+  read-only sandbox, Gemini CLI in plan mode — on the committed task branch. It
+  is given the task body and the diff against `agent/dev`, and told what it is
+  for: a criterion not met, something out of scope done anyway, a check
+  satisfied by gaming it.
+- **Read-only is checked, not trusted.** If the tree, the branch, a ref or a
+  file that judges the agent changed, what the reviewer wrote is discarded and
+  the task is paused as `error`.
+- **The verdict is one line:** `VERDICT: NO DOUBTS`, or `VERDICT: DOUBTS`
+  followed by one `- ` line per doubt. Doubts pause the task as `rejected`, with
+  an empty commit on the branch carrying each one as a `Doubt:` trailer. A
+  verdict detent cannot read is an `error`, never a pass: silence is not the
+  absence of doubt.
+- **No `models.accept`, no pass.** The journal records `"verdict": "absent"`
+  and the merge commit says `Acceptance: none declared`.
+- **`implement` and `accept` must differ** — at least in model — or the
+  configuration is refused.
+- A rejected task resumed hands the doubts to the implementer, who addresses
+  each one or says why it is wrong.
+
+`summary` reports the number this exists for: of the green runs a reviewer
+read, how many were not done.
+
 ---
 
 ## 10. Commits
@@ -571,6 +597,7 @@ Four things about this shape are deliberate:
     "implement": { "agent": "claude", "requested": "claude-opus-5", "actual": "claude-opus-5" },
     "accept": { "agent": "codex", "requested": null, "actual": null }
   },
+  "acceptance": { "verdict": "accepted", "doubts": [], "cost": { "usd": 0.06, "tokens": { "input": 21004, "output": 312 } } },
   "cost": { "usd": 0.41, "tokens": { "input": 182044, "output": 6210 } },
   "branch": "agent/task-0042-wallet-endpoint",
   "commit": "a1b2c3d",

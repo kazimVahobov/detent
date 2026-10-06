@@ -1,7 +1,7 @@
 // detent summary — pass rate, attempts, cost per pass, from the journal alone.
 
 import process from 'node:process'
-import { byModel, byRepo, readJournal, summarise } from '../journal.mjs'
+import { blindSpot, byModel, byRepo, readJournal, summarise } from '../journal.mjs'
 
 export const options = { repo: { type: 'string' } }
 
@@ -18,6 +18,12 @@ export function run(product, _positionals, { repo }) {
     process.stdout.write(table('repository', summarise(tasks, byRepo)))
     process.stdout.write('\n')
     process.stdout.write(table('agent and model', summarise(tasks, byModel)))
+    const { read, rejected } = blindSpot(tasks)
+    process.stdout.write(
+      read === 0
+        ? '\ngreen but not done: no run has been read by an acceptance pass yet\n'
+        : `\ngreen but not done: ${rejected} of ${read} green ${read === 1 ? 'run' : 'runs'} the acceptance pass read (${Math.round((rejected / read) * 100)}%)\n`,
+    )
   }
 
   const notes = []

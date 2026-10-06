@@ -73,7 +73,7 @@ test('green on the first attempt: one commit, merged into agent/dev, the branch 
   assert.equal(sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev^2'), 'feat(wallet): balance endpoint\n\nTask: 0042\nGauge: lint ✓ test ✓ (1 attempt)\nAgent: claude (claude-opus-5)')
   assert.equal(
     sh(s.repoDir, 'log', '-1', '--format=%B', 'agent/dev').trimEnd(),
-    'merge: task 0042 — feat(wallet): balance endpoint\n\nTask: 0042\nGauge: lint ✓ test ✓ (exit) · no gauge declared (merge)\nAgent: claude (claude-opus-5)',
+    'merge: task 0042 — feat(wallet): balance endpoint\n\nTask: 0042\nGauge: lint ✓ test ✓ (exit) · no gauge declared (merge)\nAgent: claude (claude-opus-5)\nAcceptance: none declared',
   )
   assert.equal(sh(s.repoDir, 'rev-parse', 'agent/dev^1'), sh(s.repoDir, 'rev-parse', 'dev'), 'one merge commit on top of where agent/dev was')
   assert.equal(show(s.repoDir, 'agent/dev', 'value.txt'), 'ok')

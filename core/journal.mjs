@@ -44,6 +44,12 @@ export function readJournal(productDir) {
   return { lines, unreadable }
 }
 
+// The most recent run of a task, or null.
+export function lastRun(productDir, taskId) {
+  const runs = readJournal(productDir).lines.filter((line) => line.kind === 'task' && Number(line.task) === Number(taskId) && line.outcome !== 'skipped')
+  return runs.at(-1) ?? null
+}
+
 // The numbers, grouped by `key`. Skipped runs are not runs: the gate refused
 // and no agent was involved, so counting them would dilute the pass rate with
 // a dirty tree.
@@ -86,6 +92,15 @@ export function summarise(lines, key) {
       outcomes,
     }
   })
+}
+
+// The number the acceptance pass exists to produce (ADR 0004): of the runs the
+// gauge let through and a reviewer read, how many were green and not done.
+export function blindSpot(lines) {
+  const read = lines.filter(
+    (l) => l.kind === 'task' && (l.outcome === 'passed' || l.outcome === 'rejected') && l.acceptance && l.acceptance.verdict !== 'absent',
+  )
+  return { read: read.length, rejected: read.filter((l) => l.outcome === 'rejected').length }
 }
 
 export const byRepo = (line) => line.repo

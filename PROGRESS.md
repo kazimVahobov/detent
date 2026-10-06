@@ -27,7 +27,7 @@ This file is a claim about what exists, so the claim is checked:
 | 8 | `dashboard` — reading what already exists | todo | — | — |
 | 9 | the scheduler: repository occupancy and barriers | todo | — | — |
 | 10 | `promote`: `agent/staging`, the batch profile, its journal line | todo | — | — |
-| 11 | the acceptance pass | todo | — | — |
+| 11 | the acceptance pass | done | `test/acceptance.test.mjs` | 2026-10-06 |
 | 12 | `init` pass 2 — the model pass and its schema | todo | — | — |
 | 13 | `plan` | todo | — | — |
 

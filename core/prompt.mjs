@@ -2,7 +2,7 @@
 // before the work, and it is the prompt (DESIGN.md §4); around it go only the
 // rules of the territory and, on a retry, what the gauge said.
 
-export function implementPrompt({ task, repo, branch, attempt, limit, resumed, feedback }) {
+export function implementPrompt({ task, repo, branch, attempt, limit, resumed, feedback, previous = null }) {
   const parts = []
 
   parts.push(
@@ -33,6 +33,13 @@ export function implementPrompt({ task, repo, branch, attempt, limit, resumed, f
     parts.push(
       'This task was paused and is being resumed. Earlier work on it is already on this branch — build on it rather than starting again. Read the task above again: the developer may have changed it.',
     )
+    if (previous?.outcome === 'rejected' && previous.acceptance?.doubts?.length) {
+      parts.push(
+        `It was paused because a reviewer read the change and doubted the task was done, although the gauge was green. Address each doubt; where one is wrong, leave the work as it is and say why in your last message:\n${previous.acceptance.doubts.map((d) => `- ${d}`).join('\n')}`,
+      )
+    } else if (previous?.reason) {
+      parts.push(`It was paused because: ${previous.reason}.`)
+    }
   }
 
   if (feedback) {
