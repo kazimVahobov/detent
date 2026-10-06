@@ -126,6 +126,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
         const answer = await invoke(accept, {
           cwd,
           readOnly: true,
+          timeoutMs: repo.timeout * 60_000,
           prompt: acceptancePrompt({ task, repo, branch, base: integration, diff, truncated }),
         })
         if (answer.model.actual) record.models.accept.actual = answer.model.actual
@@ -183,6 +184,7 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
 
         const answer = await invoke(role, {
           cwd,
+          timeoutMs: repo.timeout * 60_000,
           prompt: implementPrompt({ task, repo, branch, attempt, limit, resumed, feedback, previous: resumed ? previous : null }),
         })
         account(record, answer)

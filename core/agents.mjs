@@ -116,8 +116,9 @@ export const AGENTS = {
 }
 
 // `readOnly` runs the agent in its CLI's read-only mode — for a reviewer, which
-// has no business changing what it reviews.
-export function invoke(role, { cwd, prompt, readOnly = false, env = process.env }) {
+// has no business changing what it reviews. `timeoutMs` bounds the call: past
+// it the agent gets SIGTERM, then SIGKILL after `graceMs` if it is still there.
+export function invoke(role, { cwd, prompt, readOnly = false, timeoutMs = null, graceMs = 10_000, env = process.env }) {
   const adapter = AGENTS[role.agent]
   if (!adapter) throw new Error(`unknown agent "${role.agent}"`)
   const requested = role.model ?? null
@@ -126,16 +127,40 @@ export function invoke(role, { cwd, prompt, readOnly = false, env = process.env 
     const started = Date.now()
     let stdout = ''
     let stderr = ''
-    const child = spawn(adapter.command, adapter.args({ model: role.model, readOnly }), { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] })
+    // Its own process group, so that stopping it stops what it started too: an
+    // agent's shell commands outlive a SIGTERM to the agent alone, and keep its
+    // output open. The price is that a terminal's Ctrl-C no longer reaches it,
+    // so detent stops every live agent itself (stopAgents).
+    const child = spawn(adapter.command, adapter.args({ model: role.model, readOnly }), {
+      cwd,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      detached: true,
+    })
+    if (child.pid) live.add(child.pid)
     child.stdout.on('data', (chunk) => (stdout += chunk))
     child.stderr.on('data', (chunk) => (stderr += chunk))
     child.stdin.on('error', () => {}) // an agent that exits without reading is reported below
     child.stdin.end(prompt)
 
     let settled = false
+    let timedOut = false
+    let killer = null
+    const timer =
+      timeoutMs === null
+        ? null
+        : setTimeout(() => {
+            timedOut = true
+            signalGroup(child, 'SIGTERM')
+            killer = setTimeout(() => signalGroup(child, 'SIGKILL'), graceMs)
+          }, timeoutMs)
+
     const finish = (r) => {
       if (settled) return
       settled = true
+      clearTimeout(timer)
+      clearTimeout(killer)
+      live.delete(child.pid)
       resolve({
         agent: role.agent,
         ok: r.ok ?? false,
@@ -152,6 +177,12 @@ export function invoke(role, { cwd, prompt, readOnly = false, env = process.env 
       finish({ error: error.code === 'ENOENT' ? `${adapter.command} is not installed, or not on PATH` : error.message })
     })
     child.on('close', (code, signal) => {
+      if (timedOut) {
+        // What it cost up to the cut is kept if it was printed; the verdict is
+        // that it did not finish, whatever it said before it was stopped.
+        const partial = adapter.parse(stdout) ?? {}
+        return finish({ ...partial, ok: false, error: `${adapter.command} ran past the ${minutes(timeoutMs)} limit and was stopped` })
+      }
       const parsed = adapter.parse(stdout)
       const exit = signal ? `killed by ${signal}` : `exit code ${code}`
       if (!parsed) return finish({ error: `${adapter.command} printed nothing detent can read (${exit})${tail(stderr)}` })
@@ -191,6 +222,35 @@ function sum(...values) {
 
 function tokens(input, output) {
   return { input: input ?? 0, output: output ?? 0 }
+}
+
+// Every agent process group still running, for stopAgents.
+const live = new Set()
+
+function signalGroup(child, signal) {
+  try {
+    process.kill(-child.pid, signal)
+  } catch {
+    try {
+      child.kill(signal)
+    } catch {}
+  }
+}
+
+// Stop every agent still running — on Ctrl-C, on SIGTERM, and on any exit, so
+// no agent keeps writing into a repository detent has already put back.
+export function stopAgents(signal = 'SIGTERM') {
+  for (const pid of live) {
+    try {
+      process.kill(-pid, signal)
+    } catch {}
+  }
+}
+process.on('exit', () => stopAgents('SIGKILL'))
+
+function minutes(ms) {
+  const m = ms / 60_000
+  return Number.isInteger(m) ? `${m}-minute` : `${(ms / 1000).toFixed(1)}-second`
 }
 
 function tail(stderr) {

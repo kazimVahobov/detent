@@ -439,3 +439,23 @@ test('an edited gauge never judges the attempt that edited it', async () => {
   assert.equal(result.outcome, 'error')
   assert.equal(result.merged, false)
 })
+
+test('every agent call carries the repository\'s time limit, and a stopped one pauses the task with its work', async () => {
+  const s = setup({ timeout: 45 })
+  const limits = []
+  const n = notifier()
+  const result = await runTask(s.product, s.repo, s.task, {
+    invoke: async (role, { cwd, timeoutMs }) => {
+      limits.push(timeoutMs)
+      write('half')(cwd)
+      return answer('', { ok: false, error: 'claude ran past the 45-minute limit and was stopped' })
+    },
+    notify: n.notify,
+  })
+  assert.deepEqual(limits, [45 * 60_000])
+  assert.equal(result.outcome, 'error')
+  assert.equal(result.reason, 'the agent failed: claude ran past the 45-minute limit and was stopped')
+  assert.equal(show(s.repoDir, BRANCH, 'value.txt'), 'half', 'the work up to the cut is kept')
+  assert.equal(n.sent.length, 1)
+  assertInvariant(s.repoDir, s.before, s.product)
+})

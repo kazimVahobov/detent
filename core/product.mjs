@@ -14,6 +14,7 @@ export const DEFAULTS = Object.freeze({
   task: 'agent/task-{id}-{slug}',
   concurrency: 1,
   attempts: 3,
+  timeout: 30,
 })
 
 // Specified before they are accepted (DESIGN.md §14): until the code honours a
@@ -69,7 +70,7 @@ export function validateProduct(raw, dir = '.') {
     return { product: null, problems }
   }
 
-  strict(raw, '(root)', ['version', 'product', 'branches', 'concurrency', 'attempts', 'notify', 'models', 'repos', 'edges'], fail)
+  strict(raw, '(root)', ['version', 'product', 'branches', 'concurrency', 'attempts', 'timeout', 'notify', 'models', 'repos', 'edges'], fail)
 
   if (raw.version !== 1) fail('version', `must be 1, got ${JSON.stringify(raw.version)}`)
 
@@ -130,6 +131,7 @@ export function validateProduct(raw, dir = '.') {
   }
 
   const attempts = positiveInteger(raw.attempts, 'attempts', DEFAULTS.attempts, fail)
+  const timeout = minutesField(raw.timeout, 'timeout', DEFAULTS.timeout, fail)
   const notify = raw.notify === undefined ? null : nonEmptyString(raw.notify, 'notify', fail)
   const models = validateModels(raw.models, 'models', fail) ?? {}
 
@@ -169,7 +171,7 @@ export function validateProduct(raw, dir = '.') {
       // exactly its own (ADR 0004).
       fail(`repos[${index}].models`, `implement and accept are both ${implement.agent}${implement.model ? ` (${implement.model})` : ''} — the acceptance pass runs on a different model`)
     }
-    return { ...repo, dir: join(root, repo.path ?? ''), models: roles }
+    return { ...repo, dir: join(root, repo.path ?? ''), models: roles, timeout: repo.timeout ?? timeout }
   })
 
   if (problems.length > 0) return { product: null, problems }
@@ -183,6 +185,7 @@ export function validateProduct(raw, dir = '.') {
       branches,
       concurrency,
       attempts,
+      timeout,
       notify,
       models,
       repos: resolved,
@@ -197,7 +200,7 @@ function validateRepo(entry, path, fail) {
     fail(path, 'must be an object')
     return null
   }
-  strict(entry, path, ['name', 'path', 'role', 'stack', 'compare', 'gauge', 'models', 'neverCommit'], fail)
+  strict(entry, path, ['name', 'path', 'role', 'stack', 'compare', 'gauge', 'models', 'timeout', 'neverCommit'], fail)
 
   let name = nonEmptyString(entry.name, `${path}.name`, fail)
   if (name !== null && !NAME.test(name)) {
@@ -237,7 +240,8 @@ function validateRepo(entry, path, fail) {
     else neverCommit = entry.neverCommit.map((p, i) => relativePath(p, `${path}.neverCommit[${i}]`, fail))
   }
 
-  return { name, path: dirPath, role, stack, compare, gauge, models, neverCommit }
+  const timeout = entry.timeout === undefined ? undefined : minutesField(entry.timeout, `${path}.timeout`, undefined, fail) ?? undefined
+  return { name, path: dirPath, role, stack, compare, gauge, models, timeout, neverCommit }
 }
 
 // A repository that declares no gauge gets no lock (§6). It is not refused —
@@ -398,6 +402,17 @@ function positiveInteger(value, path, fallback, fail) {
   if (value === undefined) return fallback
   if (!Number.isInteger(value) || value < 1) {
     fail(path, `must be a positive integer, got ${JSON.stringify(value)}`)
+    return null
+  }
+  return value
+}
+
+// A time limit in minutes: any positive number, so a long one can be 90 and a
+// short one 0.5.
+function minutesField(value, path, fallback, fail) {
+  if (value === undefined) return fallback
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    fail(path, `must be a positive number of minutes, got ${JSON.stringify(value)}`)
     return null
   }
   return value

@@ -14,6 +14,9 @@ Notable changes, newest first. The format follows
   cannot read is an error, and nothing is ever approved by it. `summary`
   reports how often a green run was not done. `implement` and `accept` must be
   different models.
+- Every agent call has a time limit: `timeout` in `product.json`, in minutes,
+  30 by default and settable per repository. Past it the agent and everything
+  it started are stopped, and the task is paused with its work kept.
 - A resumed task's agent is told why it was paused, and is handed the doubts
   of a rejection.
 

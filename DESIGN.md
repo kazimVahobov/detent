@@ -260,6 +260,18 @@ are the person's, so detent does not restore them — and the run goes on using
 the product it loaded before the agent started, so an edited gauge never judges
 the attempt that edited it.
 
+### The time limit
+
+Every agent call — the implementer's and the reviewer's — is held to `timeout`
+minutes (default 30; a repository may set its own). Past it the agent's whole
+process group gets SIGTERM, and SIGKILL after a grace period: an agent's shell
+commands would otherwise outlive it and keep the run waiting. A stopped call is
+an `error`; the task is paused with the work up to the cut parked on its
+branch, and not retried — a call that hangs usually says something about the
+environment, not the code. Because each agent runs in its own process group, a
+terminal's Ctrl-C does not reach it directly, so detent stops every live agent
+itself before it returns the repositories.
+
 ### Pausing, and resuming
 
 Every outcome other than `passed` and `skipped` needs a person, so it **pauses
@@ -533,6 +545,7 @@ record are different things and belong in different places.
   },
   "concurrency": 3,
   "attempts": 3,
+  "timeout": 30,
   "notify": "notify-send detent \"$DETENT_MESSAGE\"",
   "models": {
     "implement": { "agent": "claude", "model": "claude-sonnet-5" },
