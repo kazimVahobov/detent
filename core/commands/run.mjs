@@ -38,7 +38,7 @@ export async function run(product, ids, _values, { runTask: runOne = runTask } =
     if (result.notified && !result.notified.sent) {
       process.stdout.write(`      could not notify: ${result.notified.error}\n`)
     }
-    if (result.outcome !== 'committed') ok = false
+    if (result.outcome !== 'passed') ok = false
   }
   return ok ? 0 : 1
 }
@@ -47,8 +47,8 @@ function line(r) {
   const tries = `${r.attempts} ${r.attempts === 1 ? 'attempt' : 'attempts'}`
   const cost = r.cost.usd !== null ? `, $${r.cost.usd.toFixed(2)}` : r.cost.tokens ? `, ${r.cost.tokens.input + r.cost.tokens.output} tokens` : ''
   switch (r.outcome) {
-    case 'committed':
-      return `committed on ${r.branch} (${r.commit.slice(0, 7)}), ${tries}${cost}${r.lock === 'absent' ? ' — no gauge, so nothing was checked' : ''}`
+    case 'passed':
+      return `passed — merged into agent/dev (${r.commit.slice(0, 7)}), ${tries}${cost}${r.lock === 'absent' ? ' — no gauge, so nothing was checked' : ''}`
     case 'skipped':
       return `skipped: ${r.reason}`
     default:

@@ -125,6 +125,44 @@ export function setRef(cwd, branch, commit, reason) {
   git(cwd, ['update-ref', '-m', `detent: ${reason}`, `refs/heads/${branch}`, commit])
 }
 
+// Stage the merge of `branch` into `into` on a detached HEAD, without
+// committing it and without moving `into`, so the merged tree can be checked
+// first. Returns { conflicts } — aborted here, never resolved — or { ready }.
+export function beginMerge(cwd, into, branch) {
+  assertAgentRef(into)
+  assertAgentRef(branch)
+  git(cwd, ['checkout', '--quiet', '--detach', `refs/heads/${into}`])
+  try {
+    git(cwd, ['merge', '--no-ff', '--no-commit', '--quiet', `refs/heads/${branch}`], { env: identity(cwd) })
+    return { ready: true }
+  } catch (error) {
+    if (operationInProgress(cwd) !== 'merge') throw error
+    const conflicts = git(cwd, ['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean)
+    git(cwd, ['merge', '--abort'])
+    return { conflicts }
+  }
+}
+
+// Commit the staged merge — no hooks — and move `into` to it, refusing if
+// `into` moved meanwhile. Then stand on `into`.
+export function concludeMerge(cwd, into, expected, message) {
+  assertAgentRef(into)
+  git(cwd, ['commit', '--quiet', '--no-verify', '-F', '-'], { env: identity(cwd), input: message })
+  const commit = git(cwd, ['rev-parse', 'HEAD'])
+  git(cwd, ['update-ref', '-m', 'detent: land a task', `refs/heads/${into}`, commit, expected])
+  git(cwd, ['checkout', '--quiet', into])
+  return commit
+}
+
+export function abortMerge(cwd) {
+  if (operationInProgress(cwd) === 'merge') git(cwd, ['merge', '--abort'])
+}
+
+export function deleteBranch(cwd, branch) {
+  assertAgentRef(branch)
+  git(cwd, ['branch', '--quiet', '-D', branch])
+}
+
 // A branch without checking it out — for parking work when the task branch was
 // never created because the run died first.
 export function createRef(cwd, branch, start) {
