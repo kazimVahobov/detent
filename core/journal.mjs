@@ -1,0 +1,95 @@
+// runs/journal.jsonl — one line per run, appended and never rewritten
+// (DESIGN.md §11). The numbers detent reports are computed from this file and
+// nothing else, so nothing reported can disagree with it.
+
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+
+export const JOURNAL_FILE = join('runs', 'journal.jsonl')
+
+const KINDS = new Set(['task', 'promote'])
+
+export function appendJournal(productDir, record) {
+  // kind is never defaulted: a promotion counted as a task run would quietly
+  // corrupt the pass rate.
+  if (!KINDS.has(record.kind)) throw new Error(`a journal line needs a kind, got ${JSON.stringify(record.kind)}`)
+  const file = join(productDir, JOURNAL_FILE)
+  mkdirSync(dirname(file), { recursive: true })
+  // One write of one line, opened for append: lines from two runs interleave
+  // whole or not at all.
+  appendFileSync(file, `${JSON.stringify(record)}\n`, { flag: 'a' })
+}
+
+// Every line that can be read, and how many could not.
+export function readJournal(productDir) {
+  let text
+  try {
+    text = readFileSync(join(productDir, JOURNAL_FILE), 'utf8')
+  } catch (error) {
+    if (error.code === 'ENOENT') return { lines: [], unreadable: 0 }
+    throw error
+  }
+  const lines = []
+  let unreadable = 0
+  for (const raw of text.split('\n')) {
+    if (raw.trim() === '') continue
+    try {
+      const line = JSON.parse(raw)
+      if (line && typeof line === 'object' && KINDS.has(line.kind)) lines.push(line)
+      else unreadable += 1
+    } catch {
+      unreadable += 1
+    }
+  }
+  return { lines, unreadable }
+}
+
+// The numbers, grouped by `key`. Skipped runs are not runs: the gate refused
+// and no agent was involved, so counting them would dilute the pass rate with
+// a dirty tree.
+export function summarise(lines, key) {
+  const groups = new Map()
+  for (const line of lines) {
+    if (line.kind !== 'task' || line.outcome === 'skipped') continue
+    const name = key(line)
+    if (!groups.has(name)) groups.set(name, [])
+    groups.get(name).push(line)
+  }
+
+  return [...groups].map(([name, runs]) => {
+    const passed = runs.filter((r) => r.outcome === 'passed')
+    const outcomes = {}
+    for (const r of runs) if (r.outcome !== 'passed') outcomes[r.outcome] = (outcomes[r.outcome] ?? 0) + 1
+
+    // A pass rate over runs that had no lock would be a rate of nothing
+    // checked. It exists only where every run was locked.
+    const locked = runs.every((r) => r.lock === 'enforced')
+
+    // Cost per pass, never per run: a cheap model that needs three attempts is
+    // not cheap. Every run's cost counts, the failures' included.
+    const allDollars = runs.every((r) => typeof r.cost?.usd === 'number')
+    const allTokens = runs.every((r) => r.cost?.tokens)
+    let costPerPass = null
+    if (passed.length > 0 && allDollars) {
+      costPerPass = { usd: runs.reduce((t, r) => t + r.cost.usd, 0) / passed.length }
+    } else if (passed.length > 0 && allTokens) {
+      costPerPass = { tokens: runs.reduce((t, r) => t + r.cost.tokens.input + r.cost.tokens.output, 0) / passed.length }
+    }
+
+    return {
+      name,
+      runs: runs.length,
+      passed: passed.length,
+      passRate: locked ? passed.length / runs.length : null,
+      attemptsPerRun: runs.reduce((t, r) => t + (r.attempts ?? 0), 0) / runs.length,
+      costPerPass,
+      outcomes,
+    }
+  })
+}
+
+export const byRepo = (line) => line.repo
+export const byModel = (line) => {
+  const m = line.models?.implement ?? {}
+  return `${m.agent ?? '?'} ${m.actual ?? m.requested ?? '(default)'}`
+}

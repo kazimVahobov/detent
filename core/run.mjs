@@ -18,6 +18,7 @@ import { commitSubject, implementPrompt } from './prompt.mjs'
 import { moveTask, taskBranch } from './task.mjs'
 import { withTask } from './workspace.mjs'
 import { invoke as defaultInvoke } from './agents.mjs'
+import { appendJournal } from './journal.mjs'
 
 export async function runTask(product, repo, task, { invoke = defaultInvoke, notify = defaultNotify, now = () => new Date() } = {}) {
   const role = repo.models.implement
@@ -160,7 +161,8 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
   return settle(product, task, record, notify)
 }
 
-// Where the task file goes, and who hears about it.
+// Where the task file goes, who hears about it, and the one journal line every
+// run leaves — skipped runs included, so the journal is the whole history.
 function settle(product, task, record, notify) {
   if (record.outcome === 'passed') {
     moveTask(product.dir, task, 'done')
@@ -169,6 +171,7 @@ function settle(product, task, record, notify) {
     const message = `task ${record.task} (${record.repo}) is paused — ${record.outcome}: ${record.reason}. The work is on ${record.branch}; move tasks/hold/${task.id}-${task.slug}.md back to todo/ to resume.`
     record.notified = notify(product, { task: record.task, repo: record.repo, outcome: record.outcome, branch: record.branch, message })
   }
+  appendJournal(product.dir, record)
   return record
 }
 

@@ -571,6 +571,10 @@ exists to prevent.
 The model that actually ran is recorded alongside the one requested, because a
 silent substitution would quietly corrupt every comparison built on this file.
 
+Every run leaves a line, a run the gate skipped included, so the journal is the
+whole history; `summary` does not count skipped runs, because no agent was
+involved and a dirty tree is not a failure of the model.
+
 Cost is reported **per pass**, never per run: a cheap model that needs three
 attempts is not cheap. It is in dollars where the CLI reports dollars and in
 tokens always; `usd` is `null` rather than estimated where it does not.
