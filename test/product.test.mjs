@@ -31,7 +31,7 @@ test('the shape in DESIGN.md §11, minus what is not accepted yet, loads', () =>
       branches: { integration: 'agent/dev', task: 'agent/task-{id}-{slug}' },
       concurrency: 2,
       attempts: 3,
-      models: { implement: 'claude-sonnet-5', accept: 'claude-opus-5' },
+      models: { implement: { agent: 'claude', model: 'claude-sonnet-5' }, accept: { agent: 'codex' } },
       repos: [
         {
           name: 'acme-api',
@@ -40,7 +40,7 @@ test('the shape in DESIGN.md §11, minus what is not accepted yet, loads', () =>
           stack: ['node', 'nestjs', 'postgres'],
           compare: 'dev',
           gauge: { exit: [{ stage: 'test', command: 'npm test' }], merge: [{ stage: 'build', command: 'npm run build' }] },
-          models: { implement: 'claude-opus-5' },
+          models: { implement: { agent: 'gemini', model: 'gemini-3-pro' } },
           neverCommit: ['shared-docs'],
         },
         { name: 'acme-web', compare: 'main' },
@@ -63,15 +63,24 @@ test('defaults fill what a minimal file leaves out', () => {
   assert.deepEqual(product.repos[0].gauge, { exit: [], merge: [] }, 'no gauge is carried as empty, not refused')
 })
 
-test('a repository overrides a role, never the model as a whole', () => {
+test('a repository overrides a role, never the models as a whole', () => {
   const { product } = validateProduct(
     minimal({
-      models: { implement: 'cheap', accept: 'reviewer' },
-      repos: [{ name: 'acme-api', compare: 'dev', models: { implement: 'expensive' } }],
+      models: { implement: { agent: 'codex', model: 'cheap' }, accept: { agent: 'claude', model: 'reviewer' } },
+      repos: [{ name: 'acme-api', compare: 'dev', models: { implement: { agent: 'claude', model: 'expensive' } } }],
     }),
   )
-  assert.deepEqual(product.repos[0].models, { implement: 'expensive', accept: 'reviewer' })
-  assertProblem(minimal({ repos: [{ name: 'a', compare: 'dev', models: { review: 'x' } }] }), /repos\[0\]\.models\.review: unknown key/)
+  assert.deepEqual(product.repos[0].models, { implement: { agent: 'claude', model: 'expensive' }, accept: { agent: 'claude', model: 'reviewer' } })
+  assertProblem(minimal({ repos: [{ name: 'a', compare: 'dev', models: { review: { agent: 'claude' } } }] }), /repos\[0\]\.models\.review: unknown key/)
+})
+
+test('a role names its agent; the model is optional', () => {
+  assert.deepEqual(validateProduct(minimal({ models: { implement: { agent: 'gemini' } } })).product.models, { implement: { agent: 'gemini' } })
+  assertProblem(minimal({ models: { implement: 'claude-opus-5' } }), /^models\.implement: must be \{ "agent": "claude" \| "codex" \| "gemini"/)
+  assertProblem(minimal({ models: { implement: { agent: 'cursor' } } }), /^models\.implement\.agent: must be one of claude, codex, gemini/)
+  assertProblem(minimal({ models: { implement: { model: 'x' } } }), /^models\.implement\.agent/)
+  assertProblem(minimal({ models: { implement: { agent: 'codex', model: '' } } }), /^models\.implement\.model: must be a non-empty string/)
+  assertProblem(minimal({ models: { implement: { agent: 'codex', effort: 'high' } } }), /^models\.implement\.effort: unknown key/)
 })
 
 test('an unknown key is an error, at any depth, naming its path', () => {

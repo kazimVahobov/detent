@@ -22,6 +22,7 @@ const NOT_YET_BRANCHES = { staging: 'agent-side staging (DESIGN.md §7) is not a
 const NOT_YET_GAUGE = { promote: 'the promote profile (DESIGN.md §7) is not accepted until build step 10' }
 
 const ROLES = ['implement', 'accept']
+const AGENT_NAMES = ['claude', 'codex', 'gemini']
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const SOURCES = new Set(['scan', 'model'])
 
@@ -277,9 +278,27 @@ function validateModels(models, path, fail) {
   strict(models, path, ROLES, fail)
   const result = {}
   for (const role of ROLES) {
-    if (models[role] === undefined) continue
-    const model = nonEmptyString(models[role], `${path}.${role}`, fail)
-    if (model !== null) result[role] = model
+    const value = models[role]
+    if (value === undefined) continue
+    const at = `${path}.${role}`
+    // A role names the agent, not only the model: "claude-opus-5" says nothing
+    // about which CLI to run, and guessing it from the name is a guess (ADR 0010).
+    if (!isObject(value)) {
+      fail(at, `must be { "agent": ${AGENT_NAMES.map((a) => `"${a}"`).join(' | ')}, "model"?: string }`)
+      continue
+    }
+    strict(value, at, ['agent', 'model'], fail)
+    if (!AGENT_NAMES.includes(value.agent)) {
+      fail(`${at}.agent`, `must be one of ${AGENT_NAMES.join(', ')}, got ${JSON.stringify(value.agent)}`)
+      continue
+    }
+    const entry = { agent: value.agent }
+    if (value.model !== undefined) {
+      const model = nonEmptyString(value.model, `${at}.model`, fail)
+      if (model === null) continue
+      entry.model = model
+    }
+    result[role] = entry
   }
   return result
 }

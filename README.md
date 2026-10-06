@@ -71,7 +71,7 @@ to everything:
 4. the gauge is declared as stages: a name and a command, runnable locally — the
    per-attempt profile in seconds
 5. a clean tree when a run starts
-6. an agent CLI installed and authenticated
+6. an agent CLI installed and authenticated — Claude Code, Codex or Gemini CLI
 7. the integration branch is not deployed; pushing is done by hand
 8. one person per workspace
 9. macOS or Linux, Node 22

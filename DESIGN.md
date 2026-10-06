@@ -118,7 +118,7 @@ Nine conditions. `detent doctor` checks all of them and names what to change.
 4. the gauge is declared as stages: a name and a command, runnable locally — the
    per-attempt profile in seconds
 5. a clean tree when a run starts
-6. an agent CLI installed and authenticated
+6. an agent CLI installed and authenticated — Claude Code, Codex or Gemini CLI
 7. the integration branch is not deployed; pushing is done by hand
 8. one person per workspace
 9. macOS or Linux, Node 22
@@ -467,7 +467,10 @@ record are different things and belong in different places.
   "concurrency": 3,
   "attempts": 3,
   "notify": "notify-send detent \"$DETENT_MESSAGE\"",
-  "models": { "implement": "claude-sonnet-5", "accept": "claude-opus-5" },
+  "models": {
+    "implement": { "agent": "claude", "model": "claude-sonnet-5" },
+    "accept":    { "agent": "codex" }
+  },
   "repos": [
     {
       "name": "acme-api",
@@ -476,7 +479,7 @@ record are different things and belong in different places.
       "stack": ["node", "nestjs", "postgres"],
       "compare": "dev",
       "gauge": { "exit": [], "merge": [], "promote": [] },
-      "models": { "implement": "claude-opus-5" },
+      "models": { "implement": { "agent": "claude", "model": "claude-opus-5" } },
       "neverCommit": ["shared-docs"]
     }
   ],
@@ -502,6 +505,9 @@ Four things about this shape are deliberate:
   nothing is worse than a field that does not exist.
 - **A repository overrides a *role*, never "the model"** — otherwise you could
   not say "expensive implementation in the backend, one reviewer everywhere".
+  A role names its **agent** — `claude`, `codex` or `gemini` — and optionally a
+  model; without one the CLI's default runs, and the journal records which
+  model that was when the CLI says ([ADR 0010](docs/adr/0010-three-agent-clis.md)).
 - **Every edge carries its `source`.** Edges established by the deterministic
   scan are drawn plain; edges a model proposed are labelled with their kind, so
   a guess never looks like a fact.
@@ -521,10 +527,10 @@ Four things about this shape are deliberate:
   "lock": "enforced",
   "gauge": { "profile": "exit", "failedStage": null },
   "models": {
-    "implement": { "requested": "claude-opus-5", "actual": "claude-opus-5" },
-    "accept": { "requested": "claude-sonnet-5", "actual": "claude-sonnet-5" }
+    "implement": { "agent": "claude", "requested": "claude-opus-5", "actual": "claude-opus-5" },
+    "accept": { "agent": "codex", "requested": null, "actual": null }
   },
-  "cost": { "usd": 0.41 },
+  "cost": { "usd": 0.41, "tokens": { "input": 182044, "output": 6210 } },
   "branch": "agent/task-0042-wallet-endpoint",
   "commit": "a1b2c3d",
   "merged": true
@@ -540,7 +546,8 @@ The model that actually ran is recorded alongside the one requested, because a
 silent substitution would quietly corrupt every comparison built on this file.
 
 Cost is reported **per pass**, never per run: a cheap model that needs three
-attempts is not cheap.
+attempts is not cheap. It is in dollars where the CLI reports dollars and in
+tokens always; `usd` is `null` rather than estimated where it does not.
 
 A promotion line is the same shape with `"kind": "promote"`, no `task`/`slug`,
 and the batch it carried:

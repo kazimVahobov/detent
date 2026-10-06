@@ -29,7 +29,14 @@ Notable changes, newest first. The format follows
 - `detent gauge [repo…] [--profile exit|merge]` runs a repository's gauge by
   hand, outside any run.
 
+- Claude Code, Codex and Gemini CLI run behind one call, `core/agents.mjs`,
+  each tested against the output its CLI really prints
+  ([ADR 0010](docs/adr/0010-three-agent-clis.md)).
+
 ### Changed
+
+- A role in `models` names its agent: `{ "agent": "claude" | "codex" |
+  "gemini", "model"?: string }`, instead of a bare model name.
 
 - A task gets `attempts` attempts (default 3); red on the last one pauses it in
   `tasks/hold/`, keeps its branch, and notifies the developer through the
