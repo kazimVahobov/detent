@@ -8,6 +8,10 @@ Notable changes, newest first. The format follows
 
 ### Added
 
+- `branches.staging` and `gauge.promote` are accepted. `doctor` fails a promote
+  gauge with no staging branch — a declared check nothing runs — and a declared
+  staging branch that does not exist, printing the command that creates it.
+
 - Build step 9: `detent run` works up to `concurrency` tasks at once — never
   two in one repository, a barrier (`touches_contract: true`) alone with the
   pool drained before it and nothing started past it, and a barrier that does

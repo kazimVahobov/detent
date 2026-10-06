@@ -168,3 +168,19 @@ test('detent doctor exits 1 on a failure, 0 when ready, and writes nothing', () 
   const out = execFileSync(process.execPath, [cli, 'doctor', '--product', dir], { encoding: 'utf8', env })
   assert.match(out, /^ready/m)
 })
+
+test('staging: a promote gauge with no staging fails, a declared staging must exist', () => {
+  const promote = { exit: [{ stage: 'test', command: 'true' }], promote: [{ stage: 'e2e', command: 'true' }] }
+  const orphan = product({ ...healthy, repos: [{ name: 'api', compare: 'dev', gauge: promote }] }, (d) => repo(d, 'api'))
+  assert.equal(find(diagnose(orphan, scan(orphan)).repos.api, /gauge\.promote is declared but there is no branches\.staging/).status, FAIL)
+
+  const missing = product({ ...healthy, branches: { staging: 'agent/staging' }, repos: [{ name: 'api', compare: 'dev', gauge: promote }] }, (d) => repo(d, 'api'))
+  const check = find(diagnose(missing, scan(missing)).repos.api, /agent\/staging does not exist/)
+  assert.equal(check.status, FAIL)
+  assert.equal(check.fix, `git -C ${join(missing, 'api')} branch agent/staging agent/dev`)
+
+  const ready = product({ ...healthy, branches: { staging: 'agent/staging' }, repos: [{ name: 'api', compare: 'dev', gauge: promote }] }, (d) => repo(d, 'api', { branches: ['agent/dev', 'agent/staging'] }))
+  const report = diagnose(ready, scan(ready))
+  assert.equal(failed(report), 0)
+  assert.match(find(report.repos.api, /agent\/staging exists/).text, /promote: e2e/)
+})

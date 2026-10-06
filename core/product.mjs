@@ -17,10 +17,6 @@ export const DEFAULTS = Object.freeze({
   timeout: 30,
 })
 
-// Specified before they are accepted (DESIGN.md §14): until the code honours a
-// field, the loader refuses it by name and says when it arrives.
-const NOT_YET_BRANCHES = { staging: 'agent-side staging (DESIGN.md §7) is not accepted until build step 10' }
-const NOT_YET_GAUGE = { promote: 'the promote profile (DESIGN.md §7) is not accepted until build step 10' }
 
 const ROLES = ['implement', 'accept']
 const AGENT_NAMES = ['claude', 'codex', 'gemini']
@@ -86,17 +82,24 @@ export function validateProduct(raw, dir = '.') {
   }
 
   // branches — no field can name a human branch
-  const branches = { integration: DEFAULTS.integration, task: DEFAULTS.task }
+  const branches = { integration: DEFAULTS.integration, task: DEFAULTS.task, staging: null }
   if (raw.branches !== undefined) {
     if (!isObject(raw.branches)) {
       fail('branches', 'must be an object')
     } else {
-      strict(raw.branches, 'branches', ['integration', 'task'], fail, NOT_YET_BRANCHES)
+      strict(raw.branches, 'branches', ['integration', 'task', 'staging'], fail)
       if (raw.branches.integration !== undefined) {
         branches.integration = agentBranch(raw.branches.integration, 'branches.integration', fail)
       }
       if (raw.branches.task !== undefined) {
         branches.task = taskTemplate(raw.branches.task, 'branches.task', fail)
+      }
+      // Optional, and the second stop in the namespace (§7, ADR 0008).
+      if (raw.branches.staging !== undefined) {
+        branches.staging = agentBranch(raw.branches.staging, 'branches.staging', fail)
+        if (branches.staging !== null && branches.staging === branches.integration) {
+          fail('branches.staging', `"${branches.staging}" is the integration branch — staging is a second stop after it`)
+        }
       }
     }
   }
@@ -247,14 +250,14 @@ function validateRepo(entry, path, fail) {
 // A repository that declares no gauge gets no lock (§6). It is not refused —
 // the absence is carried forward so the journal can say so.
 function validateGauge(gauge, path, fail) {
-  const result = { exit: [], merge: [] }
+  const result = { exit: [], merge: [], promote: [] }
   if (gauge === undefined) return result
   if (!isObject(gauge)) {
     fail(path, 'must be an object of profiles')
     return result
   }
-  strict(gauge, path, ['exit', 'merge'], fail, NOT_YET_GAUGE)
-  for (const profile of ['exit', 'merge']) {
+  strict(gauge, path, ['exit', 'merge', 'promote'], fail)
+  for (const profile of ['exit', 'merge', 'promote']) {
     const stages = gauge[profile]
     if (stages === undefined) continue
     if (!Array.isArray(stages)) {
