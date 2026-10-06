@@ -4,7 +4,10 @@ Notable changes, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions mean what
 [`PROGRESS.md`](PROGRESS.md) says they mean.
 
-## Unreleased
+## 0.1.0 — 2026-10-06
+
+End to end: a task goes from a file to a merge commit on `agent/dev`, and the
+journal says what it cost. Build steps 1–6 of [`PROGRESS.md`](PROGRESS.md).
 
 ### Added
 
