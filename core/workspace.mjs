@@ -46,14 +46,14 @@ export function gate(product, repo) {
 // Put a repository back: abort what git is in the middle of, park whatever is
 // in the working tree as a wip commit on the task branch, and stand on the
 // integration branch with a clean tree. Never a stash, never agent/dev.
-export function returnHome(dir, { integration, branch, task, reason }) {
+export function returnHome(dir, { integration, branch, task, reason, message, exclude = [] }) {
   const operation = operationInProgress(dir)
   if (operation) abortOperation(dir, operation)
 
   let parked = null
   if (!isClean(dir)) {
     if (!branchExists(dir, branch)) createRef(dir, branch, integration)
-    parked = snapshotOnto(dir, branch, `wip: task ${task} returned unfinished — ${reason}\n\nTask: ${task}\n`)
+    parked = snapshotOnto(dir, branch, message ?? `wip: task ${task} returned unfinished — ${reason}\n\nTask: ${task}\n`, { exclude })
   }
 
   if (currentBranch(dir) !== integration || !isClean(dir)) forceCheckout(dir, integration)
@@ -107,9 +107,10 @@ export async function withTask(product, repo, task, work) {
 
   claim(product.dir, repo.name, { task: task.id, branch })
   let returned = null
+  let message = null
   const undo = (reason) => {
     if (returned) return returned
-    returned = returnHome(repo.dir, { integration, branch, task: task.id, reason })
+    returned = returnHome(repo.dir, { integration, branch, task: task.id, reason, message, exclude: repo.neverCommit })
     release(product.dir, repo.name)
     return returned
   }
@@ -119,7 +120,17 @@ export async function withTask(product, repo, task, work) {
   try {
     if (resumed) checkoutBranch(repo.dir, branch)
     else createBranch(repo.dir, branch, integration)
-    const result = await work({ cwd: repo.dir, branch, resumed, setAttempt: (n) => setAttempt(product.dir, repo.name, n) })
+    const result = await work({
+      cwd: repo.dir,
+      branch,
+      resumed,
+      setAttempt: (n) => setAttempt(product.dir, repo.name, n),
+      // What the wip commit should say if the work is parked: the work knows
+      // the attempt and the outcome, the return only knows that it happened.
+      parkWith: (text) => {
+        message = text
+      },
+    })
     return { outcome: 'returned', branch, resumed, result, ...undo(reason) }
   } catch (error) {
     reason = `the run failed: ${error.message.split('\n')[0]}`
