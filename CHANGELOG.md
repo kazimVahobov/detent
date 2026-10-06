@@ -4,7 +4,11 @@ Notable changes, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions mean what
 [`PROGRESS.md`](PROGRESS.md) says they mean.
 
-## Unreleased
+## 0.2.0 — 2026-10-06
+
+Worth showing: there are numbers, and a page that displays them. Build steps
+7, 8 and 11 of [`PROGRESS.md`](PROGRESS.md), on top of 0.1.0 — `init` and
+`doctor`, the dashboard, and the acceptance pass.
 
 ### Added
 
