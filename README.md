@@ -6,9 +6,11 @@ A detent is the catch that holds a mechanism in a defined position until it is
 deliberately released. Here it is released by a green gauge — the project's own
 checks — and by nothing else.
 
-> **Status: being built.** The published package holds the name; nothing in it
-> runs a task yet. [PROGRESS.md](PROGRESS.md) says where the build is. Do not
-> install it yet.
+> **Status: 0.1.0, end to end.** `detent run` takes tasks from a queue to
+> `agent/dev` with Claude Code, Codex or Gemini CLI behind the gauge, and
+> `detent summary` reports what it cost. Not built yet: `doctor` and `init`
+> (write `product.json` by hand), the dashboard, parallel runs, promotion, the
+> acceptance pass and `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
 
 ## What it will do
 
