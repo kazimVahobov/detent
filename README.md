@@ -10,8 +10,8 @@ checks — and by nothing else.
 > `agent/dev` with Claude Code, Codex or Gemini CLI behind the gauge, and
 > `detent summary` reports what it cost; a second model reads every green diff
 > and may send it back, never wave it through; `init` writes `product.json`
-> from a scan and `doctor` says what to change. Not built yet: the dashboard,
-> parallel runs, promotion and `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
+> from a scan, `doctor` says what to change, and `dashboard` serves a page that
+> watches it all. Not built yet: parallel runs, promotion and `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
 
 ## What it will do
 

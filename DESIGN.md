@@ -723,6 +723,17 @@ finding, it prints the command.
 - **`gauge.promote` declared with no `branches.staging`** — a declared check
   that nothing ever runs is the same invented green as a missing gauge (§6)
 
+### The dashboard
+
+`detent dashboard [--port 4100]` serves one page on `127.0.0.1` that watches
+the product: whether a run is active and on what, where each repository's
+`agent/dev` stands against its `compare` branch (identical, behind — agents
+cannot see your work — or tasks ahead, waiting for your review), the queue,
+every paused task with why it was paused and the reviewer's doubts, and the
+numbers `summary` computes, from the same code. It answers GET and nothing
+else, the page loads nothing from outside and sets every value as text, and a
+status is always an icon and a word, never a colour alone.
+
 ### The dashboard is read-only while a run is active
 
 The queue cannot be edited during a run: detent has already read it and moves

@@ -14,6 +14,9 @@ Notable changes, newest first. The format follows
   cannot read is an error, and nothing is ever approved by it. `summary`
   reports how often a green run was not done. `implement` and `accept` must be
   different models.
+- Build step 8: `detent dashboard` serves a read-only page on localhost —
+  what is running, where each `agent/dev` stands against its human branch,
+  the queue, every paused task with why, and the journal's numbers.
 - Build step 7: `detent doctor` checks the nine conditions and the namespace
   with the same scan, says what to change — as a command where there is one,
   such as the `git branch agent/dev <compare>` it never runs itself — and
