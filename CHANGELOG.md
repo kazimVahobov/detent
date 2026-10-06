@@ -14,6 +14,11 @@ Notable changes, newest first. The format follows
   by name until step 10. `core/task.mjs` reads the queue in
   `tasks/{todo,hold,done,failed}` and rejects one that cannot be executed.
   Nothing calls either yet.
+- Build step 2: `core/gauge.mjs` runs a profile's declared stages and names the
+  one that went red; `core/lock.mjs` turns a history of gauge results into the
+  decision on the agent's way out — leave, retry with the failure text, or
+  escalate after `attempts` identical failures in a row. DESIGN.md §6 now says
+  what "identical" means.
 
 ### Changed
 

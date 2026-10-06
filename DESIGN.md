@@ -274,6 +274,20 @@ A gauge of `lint + typecheck` with no tests checks that the code compiles, not
 that it works. detent will run it and will say so in the summary; it will not
 call it behaviour.
 
+### The lock, and what "identical" means
+
+Stages run in order and the first red one ends the gauge: it is the answer, and
+a stage built on top of it would report the same failure in other words. The
+agent is handed that stage's command and the end of its output — stdout and
+stderr together, in the order they were written, capped from the front because
+the failure is almost always reported last.
+
+`attempts` in `product.json` is how many **identical failures in a row** end a
+task as `escalated`. Identical means the same stage, the same exit, and the same
+output once what changes on every run regardless — colour codes, timestamps,
+durations — is removed. A different failing assertion, or a different number of
+failing tests, is not identical: the count starts again.
+
 ---
 
 ## 7. Promotion

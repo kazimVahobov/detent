@@ -18,7 +18,7 @@ This file is a claim about what exists, so the claim is checked:
 |---|---|---|---|---|
 | 0 | the name, the CLI skeleton, the repo's own gauge, the specification | done | `test/cli.test.mjs` | 2026-10-03 |
 | 1 | `product.json` + task reading + frontmatter validation | done | `test/product.test.mjs`, `test/task.test.mjs` | 2026-10-06 |
-| 2 | the gauge and the lock — useful on their own, before any run exists | todo | — | — |
+| 2 | the gauge and the lock — useful on their own, before any run exists | done | `test/gauge.test.mjs` | 2026-10-06 |
 | 3 | the gate, `state.json`, unconditional return, `recover` | todo | — | — |
 | 4 | one task from file to commit on a task branch, sequentially | todo | — | — |
 | 5 | merge into `agent/dev`, with abort on conflict | todo | — | — |
