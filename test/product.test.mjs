@@ -190,3 +190,16 @@ test('the acceptance pass runs on a different model from the one that implemente
   assert.deepEqual(problemsOf(minimal({ models: { implement: { agent: 'claude', model: 'a' }, accept: { agent: 'claude', model: 'b' } } })), [])
   assert.deepEqual(problemsOf(minimal({ models: { implement: { agent: 'claude' }, accept: { agent: 'codex' } } })), [])
 })
+
+test('timeout: 30 minutes unless the product or a repository says otherwise', () => {
+  assert.equal(validateProduct(minimal()).product.timeout, 30)
+  assert.equal(validateProduct(minimal()).product.repos[0].timeout, 30)
+  const { product } = validateProduct(
+    minimal({ timeout: 45, repos: [{ name: 'a', compare: 'dev', timeout: 90 }, { name: 'b', compare: 'dev' }] }),
+  )
+  assert.deepEqual(product.repos.map((r) => r.timeout), [90, 45])
+  assert.equal(validateProduct(minimal({ timeout: 0.5 })).product.timeout, 0.5)
+  assertProblem(minimal({ timeout: 0 }), /^timeout: must be a positive number of minutes, got 0/)
+  assertProblem(minimal({ timeout: '30m' }), /^timeout: must be a positive number of minutes/)
+  assertProblem(minimal({ repos: [{ name: 'a', compare: 'dev', timeout: -1 }] }), /^repos\[0\]\.timeout: must be a positive number/)
+})

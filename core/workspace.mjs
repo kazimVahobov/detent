@@ -7,6 +7,7 @@
 // This is the only place detent can destroy work that is not its own.
 
 import process from 'node:process'
+import { stopAgents } from './agents.mjs'
 import {
   abortOperation,
   branchExists,
@@ -66,6 +67,9 @@ const out = new Set()
 let listening = false
 
 function onSignal(signal) {
+  // The agents first: returning a repository while an agent still writes into
+  // it would return it to nothing in particular.
+  stopAgents('SIGKILL')
   for (const undo of [...out]) {
     try {
       undo(`interrupted by ${signal}`)

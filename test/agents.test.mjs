@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { invoke } from '../core/agents.mjs'
+import { invoke, stopAgents } from '../core/agents.mjs'
 
 const CLAUDE = {
   type: 'result',
@@ -176,4 +176,63 @@ test('read-only runs each CLI in its own read-only mode — for a reviewer', asy
     assert.deepEqual(argv.slice(at, at + 2), expected[agent], agent)
     assert.ok(!argv.includes('bypassPermissions') && !argv.includes('yolo') && !argv.includes('workspace-write'), agent)
   }
+})
+
+// --- the time limit ------------------------------------------------------------
+
+function hanging(name, script) {
+  const bin = mkdtempSync(join(tmpdir(), 'detent-hang-'))
+  writeFileSync(join(bin, name), `#!/bin/sh\n${script}\n`)
+  chmodSync(join(bin, name), 0o755)
+  return { ...process.env, PATH: `${bin}:${process.env.PATH}` }
+}
+
+test('a call past its limit is stopped with everything it started, and says which limit', async () => {
+  const pidfile = join(mkdtempSync(join(tmpdir(), 'detent-pid-')), 'pid')
+  // The way an agent runs a command: a child that holds the output open.
+  const env = hanging('claude', `cat > /dev/null; sleep 30 & echo $! > ${pidfile}; wait`)
+  const started = Date.now()
+  const result = await invoke({ agent: 'claude' }, { cwd, prompt: 'x', env, timeoutMs: 300 })
+  assert.ok(Date.now() - started < 5000, 'it did not wait for the agent')
+  assert.equal(result.ok, false)
+  assert.equal(result.error, 'claude ran past the 0.3-second limit and was stopped')
+  const child = Number(readFileSync(pidfile, 'utf8'))
+  const alive = () => {
+    try {
+      process.kill(child, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+  // A signal is delivered, not executed on the spot: give it a moment.
+  for (let i = 0; i < 40 && alive(); i += 1) await new Promise((r) => setTimeout(r, 50))
+  assert.equal(alive(), false, 'the command the agent started is gone too')
+})
+
+test('stopAgents stops a live agent that has no limit', async () => {
+  const env = hanging('gemini', 'cat > /dev/null; sleep 30')
+  const call = invoke({ agent: 'gemini' }, { cwd, prompt: 'x', env })
+  await new Promise((r) => setTimeout(r, 200))
+  const started = Date.now()
+  stopAgents('SIGKILL')
+  const result = await call
+  assert.ok(Date.now() - started < 5000)
+  assert.equal(result.ok, false)
+  assert.match(result.error, /killed by SIGKILL/)
+})
+
+test('an agent that ignores SIGTERM is killed after the grace period', async () => {
+  const env = hanging('codex', "trap '' TERM; cat > /dev/null; while :; do sleep 1; done")
+  const started = Date.now()
+  const result = await invoke({ agent: 'codex' }, { cwd, prompt: 'x', env, timeoutMs: 200, graceMs: 300 })
+  assert.ok(Date.now() - started < 5000)
+  assert.equal(result.ok, false)
+  assert.match(result.error, /ran past the 0\.2-second limit/)
+})
+
+test('a limit in whole minutes reads as minutes', async () => {
+  const cli = fake('gemini', JSON.stringify(GEMINI))
+  const result = await invoke({ agent: 'gemini' }, { cwd, prompt: 'x', env: cli.env, timeoutMs: 30 * 60_000 })
+  assert.equal(result.ok, true, 'a call inside its limit is untouched')
 })
