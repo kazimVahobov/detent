@@ -6,68 +6,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { BoundaryError, createBranch, currentBranch, forceCheckout, git, isClean, operationInProgress, snapshotRefs, snapshotOnto } from '../core/git.mjs'
-import { validateProduct } from '../core/product.mjs'
+import { BoundaryError, createBranch, currentBranch, forceCheckout, snapshotRefs, snapshotOnto } from '../core/git.mjs'
+import { assertInvariant, gitProduct as fixture, sh, show } from './support/product.mjs'
 import { claim, readState } from '../core/state.mjs'
 import { gate, recover, withTask } from '../core/workspace.mjs'
 
 const root = join(import.meta.dirname, '..')
 const TASK = { id: '0042', slug: 'wallet-endpoint' }
 const BRANCH = 'agent/task-0042-wallet-endpoint'
-
-function sh(cwd, ...args) {
-  return git(cwd, args)
-}
-
-// A product folder with one repository holding a human history — dev, a
-// feature branch, a tag — and agent/dev made from dev, as a person would.
-function fixture() {
-  const dir = mkdtempSync(join(tmpdir(), 'detent-ws-'))
-  const repoDir = join(dir, 'acme-api')
-  mkdirSync(repoDir)
-  sh(repoDir, 'init', '--quiet', '--initial-branch=dev')
-  sh(repoDir, 'config', 'user.name', 'Person')
-  sh(repoDir, 'config', 'user.email', 'person@example.com')
-  sh(repoDir, 'config', 'commit.gpgsign', 'false')
-  writeFileSync(join(repoDir, 'README.md'), 'acme\n')
-  writeFileSync(join(repoDir, 'app.js'), 'export const a = 1\n')
-  writeFileSync(join(repoDir, '.gitignore'), 'node_modules/\n')
-  sh(repoDir, 'add', '.')
-  sh(repoDir, 'commit', '--quiet', '-m', 'init')
-  sh(repoDir, 'branch', 'feature/human-work')
-  sh(repoDir, 'tag', 'v1')
-  sh(repoDir, 'branch', 'agent/dev', 'dev')
-
-  const raw = { version: 1, product: { name: 'acme' }, repos: [{ name: 'acme-api', compare: 'dev' }] }
-  mkdirSync(join(dir, '.detent'))
-  writeFileSync(join(dir, '.detent', 'product.json'), JSON.stringify(raw))
-  const { product, problems } = validateProduct(raw, dir)
-  assert.deepEqual(problems, [])
-  return { dir, repoDir, product, repo: product.repos[0] }
-}
-
-// The invariant, as one assertion over every ref.
-function assertInvariant(repoDir, before, product) {
-  const after = snapshotRefs(repoDir)
-  const moved = new Set()
-  for (const [ref, object] of before) if (after.get(ref) !== object) moved.add(ref)
-  for (const [ref] of after) if (!before.has(ref)) moved.add(ref)
-  const outside = [...moved].filter((ref) => !ref.startsWith('refs/heads/agent/'))
-  assert.deepEqual(outside, [], `refs moved outside refs/heads/agent/: ${outside.join(', ')}`)
-  assert.equal(currentBranch(repoDir), 'agent/dev', 'the repository rests on agent/dev')
-  assert.equal(operationInProgress(repoDir), null, 'git is not left in the middle of anything')
-  assert.equal(isClean(repoDir), true, `the tree is clean:\n${sh(repoDir, 'status', '--short')}`)
-  assert.deepEqual(readState(product.dir).repos, {}, 'state.json lists nothing as out')
-  assert.equal(sh(repoDir, 'stash', 'list'), '', 'nothing was stashed')
-}
-
-function show(repoDir, rev, path) {
-  return sh(repoDir, 'show', `${rev}:${path}`)
-}
 
 test('success: the work commits on its task branch, and the repository comes back', async () => {
   const { repoDir, product, repo } = fixture()

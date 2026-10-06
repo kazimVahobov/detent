@@ -20,7 +20,7 @@ This file is a claim about what exists, so the claim is checked:
 | 1 | `product.json` + task reading + frontmatter validation | done | `test/product.test.mjs`, `test/task.test.mjs` | 2026-10-06 |
 | 2 | the gauge and the lock — useful on their own, before any run exists | done | `test/gauge.test.mjs` | 2026-10-06 |
 | 3 | the gate, `state.json`, unconditional return, `recover` | done | `test/workspace.test.mjs` | 2026-10-06 |
-| 4 | one task from file to commit on a task branch, sequentially | todo | — | — |
+| 4 | one task from file to commit on a task branch, sequentially | done | `test/run.test.mjs`, `test/agents.test.mjs` | 2026-10-06 |
 | 5 | merge into `agent/dev`, with abort on conflict | todo | — | — |
 | 6 | journal + `summary` | todo | — | — |
 | 7 | `doctor` and `init` pass 1 — the deterministic scan they share | todo | — | — |

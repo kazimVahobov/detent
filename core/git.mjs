@@ -118,6 +118,13 @@ export function checkoutBranch(cwd, branch) {
   git(cwd, ['checkout', '--quiet', branch])
 }
 
+// Point an agent branch at a commit — to put agent/dev back where a run found
+// it, or to keep commits that landed where they should not have.
+export function setRef(cwd, branch, commit, reason) {
+  assertAgentRef(branch)
+  git(cwd, ['update-ref', '-m', `detent: ${reason}`, `refs/heads/${branch}`, commit])
+}
+
 // A branch without checking it out — for parking work when the task branch was
 // never created because the run died first.
 export function createRef(cwd, branch, start) {
@@ -141,8 +148,10 @@ export function abortOperation(cwd, operation) {
 // Commit the whole working tree, as it is, onto `branch` — without checking it
 // out, without touching the index the person sees, and without running hooks:
 // a pre-commit hook that fails is exactly the situation in which the work most
-// needs saving. Returns the new commit, or null if there was nothing to save.
-export function snapshotOnto(cwd, branch, message) {
+// needs saving, and the gauge, not a hook, is what decides green. Paths in
+// `exclude` (neverCommit) keep the branch's version. Returns the new commit,
+// or null if there was nothing to save.
+export function snapshotOnto(cwd, branch, message, { exclude = [], allowEmpty = false } = {}) {
   assertAgentRef(branch)
   let index = git(cwd, ['rev-parse', '--git-path', `detent-index-${process.pid}`])
   if (!isAbsolute(index)) index = join(cwd, index)
@@ -151,11 +160,15 @@ export function snapshotOnto(cwd, branch, message) {
     const head = tryGit(cwd, ['rev-parse', '--verify', 'HEAD^{commit}'])
     if (head) git(cwd, ['read-tree', head], { env })
     git(cwd, ['add', '--all'], { env })
-    const tree = git(cwd, ['write-tree'], { env })
     const parent = tip(cwd, branch)
-    if (git(cwd, ['rev-parse', `${parent}^{tree}`]) === tree) return null
+    for (const path of exclude) git(cwd, ['reset', '--quiet', parent, '--', path], { env })
+    const tree = git(cwd, ['write-tree'], { env })
+    if (!allowEmpty && git(cwd, ['rev-parse', `${parent}^{tree}`]) === tree) return null
     const commit = git(cwd, ['commit-tree', tree, '-p', parent, '-F', '-'], { env, input: message })
-    git(cwd, ['update-ref', '-m', 'detent: park unfinished work', `refs/heads/${branch}`, commit, parent])
+    git(cwd, ['update-ref', '-m', 'detent: commit the working tree', `refs/heads/${branch}`, commit, parent])
+    // Standing on that branch, the person's index now lags the commit it
+    // describes; bring it level. No ref moves.
+    if (currentBranch(cwd) === branch) git(cwd, ['reset', '--quiet'])
     return commit
   } finally {
     rmSync(index, { force: true })

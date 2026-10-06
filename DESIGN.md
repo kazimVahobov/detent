@@ -228,6 +228,20 @@ justifies running an acceptance pass at all.
 Failed work never reaches `agent/dev`, so the next task in that repository
 branches from a clean base and does not inherit someone else's mess.
 
+### The agent's turn
+
+The agent is given the task body and nothing of the frontmatter, the rules of
+the territory — stay on this branch, do not commit, merge, stash or push — the
+gauge stages it is held to, and on a retry the failed stage's output. It is
+asked to end with a `Commit:` line; a well-formed one becomes the subject of
+the commit, and detent writes the trailers whatever it says.
+
+An agent has a shell, so the boundary is **checked after every turn, not
+assumed**. If `agent/dev` moved, detent puts it back and keeps what the agent
+put there on `<task branch>-stray`. If a human branch or a tag moved, detent
+names it and pauses the task — it is not detent's to move back. Green with
+nothing changed is not a pass.
+
 ### Pausing, and resuming
 
 Every outcome other than `passed` and `skipped` needs a person, so it **pauses
@@ -392,7 +406,8 @@ feat(wallet): driver wallet balance in the app
 
 Task: 0042
 Gauge: lint ✓ typecheck ✓ test ✓ (2 attempts)
-Acceptance: claude-opus-5 — accepted
+Agent: claude (claude-sonnet-5)
+Acceptance: codex — accepted
 
 Co-Authored-By: ...
 ```
@@ -403,8 +418,9 @@ Co-Authored-By: ...
 wip(wallet): attempt 3, gauge red on test
 
 Task: 0042
-Gauge: lint ✓ typecheck ✓ test ✗ — 3 failing tests
+Gauge: lint ✓ typecheck ✓ test ✗
 Outcome: escalated — 3 identical failures on test
+Agent: claude (claude-sonnet-5)
 
 Co-Authored-By: ...
 ```

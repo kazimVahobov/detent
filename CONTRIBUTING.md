@@ -121,8 +121,9 @@ Commits made by detent carry the trailers from
 
 ```
 Task: 0042
-Gauge: lint ✓ typecheck ✓ test ✗ — 3 failing tests
+Gauge: lint ✓ typecheck ✓ test ✗
 Outcome: escalated — 3 identical failures on test
+Agent: claude (claude-sonnet-5)
 ```
 
 Human commits do not. The side effect is worth having: `git log` says who did

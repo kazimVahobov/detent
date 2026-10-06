@@ -33,6 +33,13 @@ Notable changes, newest first. The format follows
   each tested against the output its CLI really prints
   ([ADR 0010](docs/adr/0010-three-agent-clis.md)).
 
+- Build step 4: `detent run` works the queue one task at a time — the
+  implementing agent on its task branch, the gauge on its way out, a commit
+  with `Task`, `Gauge` and `Agent` trailers when green, a pause and a
+  notification when the budget is spent. The boundary is checked after every
+  agent turn: `agent/dev` is restored if the agent moved it, a moved human ref
+  is named and left alone.
+
 ### Changed
 
 - A role in `models` names its agent: `{ "agent": "claude" | "codex" |
