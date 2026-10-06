@@ -23,7 +23,7 @@ test('bare invocation prints usage and succeeds', () => {
 
 test('every command is listed in usage', () => {
   const { out } = run(['--help'])
-  const commands = ['doctor', 'init', 'plan', 'run', 'promote', 'summary', 'dashboard', 'recover', 'prune']
+  const commands = ['doctor', 'init', 'plan', 'run', 'promote', 'summary', 'dashboard', 'gauge', 'recover', 'prune']
   for (const command of commands) {
     assert.match(out, new RegExp(`\\b${command}\\b`), `usage is missing "${command}"`)
   }
