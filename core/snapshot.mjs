@@ -5,7 +5,7 @@
 
 import { readFileSync } from 'node:fs'
 import { branchExists, currentBranch, git, isClean } from './git.mjs'
-import { blindSpot, byModel, byRepo, readJournal, summarise } from './journal.mjs'
+import { batches, blindSpot, byModel, byRepo, readJournal, summarise } from './journal.mjs'
 import { isAlive, readState } from './state.mjs'
 import { FOLDERS, readQueue } from './task.mjs'
 
@@ -57,6 +57,7 @@ export function snapshot(product, { now = new Date() } = {}) {
       byRepo: summarise(tasks, byRepo),
       byModel: summarise(tasks, byModel),
       blindSpot: blindSpot(tasks),
+      batches: batches(lines),
       skipped: tasks.filter((l) => l.outcome === 'skipped').length,
       unreadable,
     },

@@ -141,6 +141,15 @@ export function blindSpot(lines) {
   return { read: read.length, rejected: read.filter((l) => l.outcome === 'rejected').length }
 }
 
+// The same number one level up (ADR 0008): of the batches a promote gauge
+// checked, how many came out red — every task in each had been green alone.
+export function batches(lines) {
+  // A batch with no promote stages was not checked, and is not counted as a
+  // green one: that would be the invented green of a missing gauge (§6).
+  const checked = lines.filter((l) => l.kind === 'promote' && l.lock === 'enforced' && (l.outcome === 'passed' || l.outcome === 'red'))
+  return { checked: checked.length, red: checked.filter((l) => l.outcome === 'red').length }
+}
+
 export const byRepo = (line) => line.repo
 export const byModel = (line) => {
   const m = line.models?.implement ?? {}

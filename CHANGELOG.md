@@ -8,6 +8,11 @@ Notable changes, newest first. The format follows
 
 ### Added
 
+- Build step 10: `detent promote` merges `agent/dev` into `agent/staging`
+  behind the `promote` profile run on the merged tree. Red promotes nothing and
+  reverts nothing; a conflict is aborted; both tell the developer. A
+  promotion is its own journal line, and `summary` and the dashboard report how
+  often a batch came out red with every task in it green.
 - `branches.staging` and `gauge.promote` are accepted. `doctor` fails a promote
   gauge with no staging branch — a declared check nothing runs — and a declared
   staging branch that does not exist, printing the command that creates it.

@@ -106,7 +106,7 @@ test('detent summary prints both tables and says what it left out', () => {
     line({ repo: 'acme-api', outcome: 'escalated', attempts: 3, cost: { usd: 1.2, tokens: null } }),
     line({ repo: 'acme-web', outcome: 'passed', attempts: 2, lock: 'absent', models: { implement: { agent: 'codex', requested: null, actual: null } }, cost: { usd: null, tokens: { input: 4000, output: 1000 } } }),
     line({ repo: 'acme-web', outcome: 'skipped', attempts: 0 }),
-    { kind: 'promote', repo: 'acme-api', outcome: 'passed' },
+    { kind: 'promote', repo: 'acme-api', outcome: 'passed', lock: 'enforced' },
   ])
   const out = summary(dir)
   assert.match(out, /^repository +runs +passed +pass rate +attempts\/run +cost\/pass +not passed$/m)
@@ -115,7 +115,8 @@ test('detent summary prints both tables and says what it left out', () => {
   assert.match(out, /^claude claude-opus-5 +2 +1 +50%/m)
   assert.match(out, /^codex \(default\) +1 +1 +—/m)
   assert.match(out, /1 run was skipped by the gate, and not counted/)
-  assert.match(out, /1 promotion line is not summarised yet \(build step 10\)/)
+  assert.match(out, /^red batch: 0 of 1 batch came out red with every task in it green \(0%\)$/m)
+  assert.doesNotMatch(out, /^acme-api +3 /m, 'a promotion is never counted as a task run')
 
   const one = summary(dir, '--repo', 'acme-web')
   assert.doesNotMatch(one, /acme-api/)

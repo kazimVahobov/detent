@@ -51,8 +51,10 @@ export function returnHome(dir, { integration, branch, task, reason, message, ex
   const operation = operationInProgress(dir)
   if (operation) abortOperation(dir, operation)
 
+  // With no branch to park on — a promotion — what is in the tree is only what
+  // its gauge left behind, and is discarded.
   let parked = null
-  if (!isClean(dir)) {
+  if (!isClean(dir) && branch) {
     if (!branchExists(dir, branch)) createRef(dir, branch, integration)
     parked = snapshotOnto(dir, branch, message ?? `wip: task ${task} returned unfinished — ${reason}\n\nTask: ${task}\n`, { exclude })
   }
@@ -141,6 +143,31 @@ export async function withTask(product, repo, task, work) {
     throw error
   } finally {
     undo(reason)
+    untrack(undo)
+  }
+}
+
+// A promotion holds a repository the way a task does — claimed in state.json,
+// returned on every exit, Ctrl-C included, and recoverable after a hard kill —
+// but has no branch of its own to park anything on.
+export async function withPromotion(product, repo, work) {
+  const integration = product.branches.integration
+  const refusal = gate(product, repo)
+  if (refusal) return { outcome: 'skipped', reason: refusal }
+
+  claim(product.dir, repo.name, { task: 'promote', branch: null })
+  let returned = null
+  const undo = (reason) => {
+    if (returned) return returned
+    returned = returnHome(repo.dir, { integration, branch: null, task: 'promote', reason })
+    release(product.dir, repo.name)
+    return returned
+  }
+  track(undo)
+  try {
+    return { outcome: 'returned', result: await work({ cwd: repo.dir }) }
+  } finally {
+    undo('the promotion ended')
     untrack(undo)
   }
 }
