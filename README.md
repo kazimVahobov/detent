@@ -11,7 +11,8 @@ checks — and by nothing else.
 > `detent summary` reports what it cost; a second model reads every green diff
 > and may send it back, never wave it through; `init` writes `product.json`
 > from a scan, `doctor` says what to change, and `dashboard` serves a page that
-> watches it all. Not built yet: parallel runs, promotion and `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
+> watches it all; tasks in different repositories run side by side. Not built
+> yet: promotion and `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
 
 ## What it will do
 

@@ -4,6 +4,20 @@ Notable changes, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions mean what
 [`PROGRESS.md`](PROGRESS.md) says they mean.
 
+## Unreleased
+
+### Added
+
+- Build step 9: `detent run` works up to `concurrency` tasks at once — never
+  two in one repository, a barrier (`touches_contract: true`) alone with the
+  pool drained before it and nothing started past it, and a barrier that does
+  not pass ends the run there.
+
+### Fixed
+
+- Two tasks running at once no longer trip each other's boundary check: the
+  journal may grow by lines detent appended, and by nothing else.
+
 ## 0.2.0 — 2026-10-06
 
 Worth showing: there are numbers, and a page that displays them. Build steps

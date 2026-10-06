@@ -9,6 +9,10 @@ export const JOURNAL_FILE = join('runs', 'journal.jsonl')
 
 const KINDS = new Set(['task', 'promote'])
 
+// Every line this process appended, so a watcher can tell detent's own writes —
+// another task finishing beside this one — from somebody else's.
+const ours = new Set()
+
 export function appendJournal(productDir, record) {
   // kind is never defaulted: a promotion counted as a task run would quietly
   // corrupt the pass rate.
@@ -17,7 +21,41 @@ export function appendJournal(productDir, record) {
   mkdirSync(dirname(file), { recursive: true })
   // One write of one line, opened for append: lines from two runs interleave
   // whole or not at all.
-  appendFileSync(file, `${JSON.stringify(record)}\n`, { flag: 'a' })
+  const line = JSON.stringify(record)
+  ours.add(line)
+  appendFileSync(file, `${line}\n`, { flag: 'a' })
+}
+
+// Watch the journal across an agent's turn. The journal is append-only and
+// other tasks append to it while this one runs, so a change is allowed only if
+// what was there is still there, untouched, and everything after it is lines
+// detent itself appended.
+export function watchJournal(productDir) {
+  const file = join(productDir, JOURNAL_FILE)
+  let seen = read(file)
+  return {
+    file,
+    changed() {
+      const now = read(file)
+      if (!now.startsWith(seen)) return true
+      const added = now.slice(seen.length).split('\n').filter(Boolean)
+      if (added.some((line) => !ours.has(line))) return true
+      seen = now
+      return false
+    },
+    reset() {
+      seen = read(file)
+    },
+  }
+}
+
+function read(file) {
+  try {
+    return readFileSync(file, 'utf8')
+  } catch (error) {
+    if (error.code === 'ENOENT') return ''
+    throw error
+  }
 }
 
 // Every line that can be read, and how many could not.
