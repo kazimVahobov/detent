@@ -176,3 +176,17 @@ test('notify is a command, or absent', () => {
   assertProblem(minimal({ notify: '' }), /^notify: must be a non-empty string/)
   assertProblem(minimal({ notify: ['slack'] }), /^notify: must be a non-empty string/)
 })
+
+test('the acceptance pass runs on a different model from the one that implemented', () => {
+  assertProblem(
+    minimal({ models: { implement: { agent: 'claude', model: 'claude-opus-5' }, accept: { agent: 'claude', model: 'claude-opus-5' } } }),
+    /^repos\[0\]\.models: implement and accept are both claude \(claude-opus-5\) — the acceptance pass runs on a different model/,
+  )
+  assertProblem(minimal({ models: { implement: { agent: 'codex' }, accept: { agent: 'codex' } } }), /both codex — /)
+  assertProblem(
+    minimal({ models: { implement: { agent: 'codex' } }, repos: [{ name: 'acme-api', compare: 'dev', models: { accept: { agent: 'codex' } } }] }),
+    /^repos\[0\]\.models: implement and accept are both codex/,
+  )
+  assert.deepEqual(problemsOf(minimal({ models: { implement: { agent: 'claude', model: 'a' }, accept: { agent: 'claude', model: 'b' } } })), [])
+  assert.deepEqual(problemsOf(minimal({ models: { implement: { agent: 'claude' }, accept: { agent: 'codex' } } })), [])
+})

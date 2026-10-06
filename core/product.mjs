@@ -159,9 +159,21 @@ export function validateProduct(raw, dir = '.') {
     }
   }
 
+  const root = resolve(dir)
+  const resolved = repos.map((repo, index) => {
+    // A repository overrides a role, never "the model" (§11).
+    const roles = { ...models, ...repo.models }
+    const { implement, accept } = roles
+    if (implement && accept && implement.agent === accept.agent && (implement.model ?? null) === (accept.model ?? null)) {
+      // A model tends to approve its own reasoning, and its blind spots are
+      // exactly its own (ADR 0004).
+      fail(`repos[${index}].models`, `implement and accept are both ${implement.agent}${implement.model ? ` (${implement.model})` : ''} — the acceptance pass runs on a different model`)
+    }
+    return { ...repo, dir: join(root, repo.path ?? ''), models: roles }
+  })
+
   if (problems.length > 0) return { product: null, problems }
 
-  const root = resolve(dir)
   return {
     product: {
       dir: root,
@@ -173,12 +185,7 @@ export function validateProduct(raw, dir = '.') {
       attempts,
       notify,
       models,
-      repos: repos.map((repo) => ({
-        ...repo,
-        dir: join(root, repo.path),
-        // A repository overrides a role, never "the model" (§11).
-        models: { ...models, ...repo.models },
-      })),
+      repos: resolved,
       edges,
     },
     problems,

@@ -164,3 +164,16 @@ test('output nobody can read, or a non-zero exit, is not ok', async () => {
 test('an unknown agent is a programming error', () => {
   assert.throws(() => invoke({ agent: 'cursor' }, { cwd, prompt: 'x' }), /unknown agent "cursor"/)
 })
+
+test('read-only runs each CLI in its own read-only mode — for a reviewer', async () => {
+  const expected = { claude: ['--permission-mode', 'plan'], codex: ['--sandbox', 'read-only'], gemini: ['--approval-mode', 'plan'] }
+  const outputs = { claude: JSON.stringify(CLAUDE), codex: CODEX, gemini: JSON.stringify(GEMINI) }
+  for (const agent of ['claude', 'codex', 'gemini']) {
+    const cli = fake(agent, outputs[agent])
+    await invoke({ agent }, { cwd, prompt: 'review', readOnly: true, env: cli.env })
+    const argv = cli.argv()
+    const at = argv.indexOf(expected[agent][0])
+    assert.deepEqual(argv.slice(at, at + 2), expected[agent], agent)
+    assert.ok(!argv.includes('bypassPermissions') && !argv.includes('yolo') && !argv.includes('workspace-write'), agent)
+  }
+})

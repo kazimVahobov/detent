@@ -8,6 +8,15 @@ Notable changes, newest first. The format follows
 
 ### Added
 
+- Build step 11: the acceptance pass. Between a green gauge and the merge,
+  `models.accept` reads the diff against the task in its CLI's read-only mode
+  and may raise doubts; a doubt pauses the task as `rejected`, a verdict detent
+  cannot read is an error, and nothing is ever approved by it. `summary`
+  reports how often a green run was not done. `implement` and `accept` must be
+  different models.
+- A resumed task's agent is told why it was paused, and is handed the doubts
+  of a rejection.
+
 - After every agent turn, `.detent/product.json`, the task's own file and the
   journal are compared with what they were before it; an agent that edits the
   files that judge it pauses the task.

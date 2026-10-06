@@ -8,9 +8,10 @@ checks — and by nothing else.
 
 > **Status: 0.1.0, end to end.** `detent run` takes tasks from a queue to
 > `agent/dev` with Claude Code, Codex or Gemini CLI behind the gauge, and
-> `detent summary` reports what it cost. Not built yet: `doctor` and `init`
-> (write `product.json` by hand), the dashboard, parallel runs, promotion, the
-> acceptance pass and `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
+> `detent summary` reports what it cost; a second model reads every green diff
+> and may send it back, never wave it through. Not built yet: `doctor` and
+> `init` (write `product.json` by hand), the dashboard, parallel runs,
+> promotion and `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
 
 ## What it will do
 

@@ -14,7 +14,8 @@ export const AGENTS = {
   // Claude Code: one JSON object on stdout.
   claude: {
     command: 'claude',
-    args: ({ model }) => ['-p', '--output-format', 'json', '--permission-mode', 'bypassPermissions', ...(model ? ['--model', model] : [])],
+    // Plan mode is Claude Code's read-only mode: it reads and refuses to write.
+    args: ({ model, readOnly }) => ['-p', '--output-format', 'json', '--permission-mode', readOnly ? 'plan' : 'bypassPermissions', ...(model ? ['--model', model] : [])],
     parse(stdout) {
       const out = lastJson(stdout)
       if (!out) return null
@@ -39,7 +40,7 @@ export const AGENTS = {
   // read from stdin when it is given as "-".
   codex: {
     command: 'codex',
-    args: ({ model }) => ['exec', '--json', '--sandbox', 'workspace-write', '--color', 'never', ...(model ? ['--model', model] : []), '-'],
+    args: ({ model, readOnly }) => ['exec', '--json', '--sandbox', readOnly ? 'read-only' : 'workspace-write', '--color', 'never', ...(model ? ['--model', model] : []), '-'],
     parse(stdout) {
       const events = stdout.split('\n').flatMap((line) => {
         try {
@@ -84,9 +85,9 @@ export const AGENTS = {
   // appended to stdin, so it carries only a pointer to the real prompt.
   gemini: {
     command: 'gemini',
-    args: ({ model }) => [
+    args: ({ model, readOnly }) => [
       '--output-format', 'json',
-      '--approval-mode', 'yolo',
+      '--approval-mode', readOnly ? 'plan' : 'yolo',
       '--skip-trust',
       ...(model ? ['--model', model] : []),
       '--prompt', 'The task is above. Work on it in this repository.',
@@ -114,7 +115,9 @@ export const AGENTS = {
   },
 }
 
-export function invoke(role, { cwd, prompt, env = process.env }) {
+// `readOnly` runs the agent in its CLI's read-only mode — for a reviewer, which
+// has no business changing what it reviews.
+export function invoke(role, { cwd, prompt, readOnly = false, env = process.env }) {
   const adapter = AGENTS[role.agent]
   if (!adapter) throw new Error(`unknown agent "${role.agent}"`)
   const requested = role.model ?? null
@@ -123,7 +126,7 @@ export function invoke(role, { cwd, prompt, env = process.env }) {
     const started = Date.now()
     let stdout = ''
     let stderr = ''
-    const child = spawn(adapter.command, adapter.args({ model: role.model }), { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn(adapter.command, adapter.args({ model: role.model, readOnly }), { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] })
     child.stdout.on('data', (chunk) => (stdout += chunk))
     child.stderr.on('data', (chunk) => (stderr += chunk))
     child.stdin.on('error', () => {}) // an agent that exits without reading is reported below
