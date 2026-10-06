@@ -419,6 +419,16 @@ Two rules, and no others:
 The concurrency ceiling is therefore bounded by the number of repositories, and
 configured below it.
 
+**A barrier that does not pass ends the run there.** The tasks queued behind it
+were written for the contract it was meant to replace; starting them against
+the old one is the mistake the barrier exists to prevent. They stay in `todo/`
+for the next run, and the run says which were not started.
+
+Tasks for one repository run in id order; a busy repository never holds up
+another. Running side by side, tasks share the journal, so the check that an
+agent did not touch the files judging it allows the journal to grow by lines
+detent itself appended, and by nothing else.
+
 ---
 
 ## 9. The acceptance pass

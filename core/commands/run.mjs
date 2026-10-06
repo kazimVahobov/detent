@@ -1,8 +1,10 @@
-// detent run — work the queue: every task in todo/, in id order, one at a time.
+// detent run — work the queue: every task in todo/, in id order, up to
+// `concurrency` at once under the scheduler's two rules (§8).
 
 import process from 'node:process'
 import { readQueue } from '../task.mjs'
 import { runTask } from '../run.mjs'
+import { schedule } from '../scheduler.mjs'
 import { UsageError } from './usage.mjs'
 
 export const options = {}
@@ -29,18 +31,22 @@ export async function run(product, ids, _values, { runTask: runOne = runTask } =
     throw new UsageError(`no implementing agent for ${unarmed.join(', ')} — set models.implement in product.json`)
   }
 
-  let ok = true
-  for (const task of tasks) {
-    const repo = product.repos.find((r) => r.name === task.repo)
-    process.stdout.write(`${task.id}  ${task.repo}  ${task.slug}  …\n`)
-    const result = await runOne(product, repo, task)
-    process.stdout.write(`${task.id}  ${line(result)}\n`)
-    if (result.notified && !result.notified.sent) {
-      process.stdout.write(`      could not notify: ${result.notified.error}\n`)
-    }
-    if (result.outcome !== 'passed') ok = false
+  const { results, stoppedAt } = await schedule(tasks, {
+    concurrency: product.concurrency,
+    runOne: (task) => runOne(product, product.repos.find((r) => r.name === task.repo), task),
+    onStart: (task) => process.stdout.write(`${task.id}  ${task.repo}  ${task.slug}${task.touchesContract ? '  (barrier — runs alone)' : ''}  …\n`),
+    onFinish: (task, result) => {
+      process.stdout.write(`${task.id}  ${line(result)}\n`)
+      if (result.notified && !result.notified.sent) process.stdout.write(`      could not notify: ${result.notified.error}\n`)
+    },
+  })
+  if (stoppedAt) {
+    const left = stoppedAt.left.map((t) => t.id).join(', ')
+    process.stdout.write(
+      `stopped at barrier ${stoppedAt.task.id}: it did not pass, and ${left ? `${left} ${stoppedAt.left.length === 1 ? 'was' : 'were'}` : 'nothing was'} queued behind a contract it did not replace${left ? ' — not started' : ''}\n`,
+    )
   }
-  return ok ? 0 : 1
+  return !stoppedAt && results.every(({ result }) => result.outcome === 'passed') ? 0 : 1
 }
 
 function line(r) {

@@ -23,7 +23,7 @@ import { commitSubject, implementPrompt } from './prompt.mjs'
 import { moveTask, taskBranch } from './task.mjs'
 import { withTask } from './workspace.mjs'
 import { invoke as defaultInvoke } from './agents.mjs'
-import { JOURNAL_FILE, appendJournal, lastRun } from './journal.mjs'
+import { appendJournal, lastRun, watchJournal } from './journal.mjs'
 import { PRODUCT_FILE } from './product.mjs'
 
 export async function runTask(product, repo, task, { invoke = defaultInvoke, notify = defaultNotify, now = () => new Date() } = {}) {
@@ -61,7 +61,9 @@ export async function runTask(product, repo, task, { invoke = defaultInvoke, not
       record.resumed = resumed
       const start = tip(cwd, integration)
       const watched = humanRefs(cwd)
-      const judges = fingerprints([join(product.dir, PRODUCT_FILE), task.file, join(product.dir, JOURNAL_FILE)])
+      const judges = fingerprints([join(product.dir, PRODUCT_FILE), task.file])
+      // The journal is watched differently: other tasks append to it meanwhile.
+      judges.journal = watchJournal(product.dir)
       const history = []
       let feedback = null
 
@@ -312,9 +314,11 @@ function checkBoundary(cwd, { integration, start, branch, watched, judges, produ
   // of a shell. They are the person's, so a change is named, not undone — and
   // this run goes on using the product it loaded before the agent started.
   const edited = [...judges].filter(([file, hash]) => digest(file) !== hash).map(([file]) => relative(productDir, file))
+  if (judges.journal.changed()) edited.push(relative(productDir, judges.journal.file))
   if (edited.length > 0) {
     problems.push(`the agent changed ${edited.join(', ')} — the files that judge it are not its to edit; look at them before resuming`)
     for (const file of judges.keys()) judges.set(file, digest(file))
+    judges.journal.reset()
   }
 
   const now = humanRefs(cwd)

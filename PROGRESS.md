@@ -25,7 +25,7 @@ This file is a claim about what exists, so the claim is checked:
 | 6 | journal + `summary` | done | `test/journal.test.mjs`, `test/run.test.mjs` | 2026-10-06 |
 | 7 | `doctor` and `init` pass 1 — the deterministic scan they share | done | `test/init.test.mjs`, `test/doctor.test.mjs` | 2026-10-06 |
 | 8 | `dashboard` — reading what already exists | done | `test/dashboard.test.mjs` | 2026-10-06 |
-| 9 | the scheduler: repository occupancy and barriers | todo | — | — |
+| 9 | the scheduler: repository occupancy and barriers | done | `test/scheduler.test.mjs` | 2026-10-06 |
 | 10 | `promote`: `agent/staging`, the batch profile, its journal line | todo | — | — |
 | 11 | the acceptance pass | done | `test/acceptance.test.mjs` | 2026-10-06 |
 | 12 | `init` pass 2 — the model pass and its schema | todo | — | — |
