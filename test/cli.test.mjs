@@ -55,10 +55,12 @@ test('an unknown command fails with usage, not a stack trace', () => {
   assert.doesNotMatch(out, /at \S+:\d+:\d+/)
 })
 
-test('a known but unbuilt command says so instead of pretending', () => {
-  const { code, out } = run(['prune'])
-  assert.equal(code, 70)
-  assert.match(out, /not implemented yet/)
+test('every command in usage is built: none answers "not implemented"', () => {
+  for (const command of ['doctor', 'init', 'plan', 'run', 'promote', 'summary', 'dashboard', 'gauge', 'recover', 'prune']) {
+    const { code, out } = run([command, '--product', '/nonexistent-product'])
+    assert.notEqual(code, 70, `${command}: ${out}`)
+    assert.doesNotMatch(out, /not implemented/, command)
+  }
 })
 
 test('a reader that closes early ends the command quietly', () => {

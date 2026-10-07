@@ -8,6 +8,8 @@ Notable changes, newest first. The format follows
 
 ### Added
 
+- `detent prune` deletes task branches whose work is already on `agent/dev`,
+  and keeps paused work. Every command in `detent --help` now does something.
 - Build step 13: `detent plan` opens an interactive session with the agent to
   talk the work through and write the task files, then lists what was written,
   validates the queue as `run` will, and names anything else that changed.

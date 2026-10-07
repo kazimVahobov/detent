@@ -15,6 +15,7 @@ import * as gauge from './core/commands/gauge.mjs'
 import * as init from './core/commands/init.mjs'
 import * as plan from './core/commands/plan.mjs'
 import * as promoteCommand from './core/commands/promote.mjs'
+import * as prune from './core/commands/prune.mjs'
 import * as recover from './core/commands/recover.mjs'
 import * as runCommand from './core/commands/run.mjs'
 import * as summary from './core/commands/summary.mjs'
@@ -37,7 +38,7 @@ const COMMANDS = {
 }
 
 // Commands that exist, each a module: { options, run(product, positionals, values) }.
-const BUILT = { dashboard, doctor, gauge, init, plan, promote: promoteCommand, recover, run: runCommand, summary }
+const BUILT = { dashboard, doctor, gauge, init, plan, promote: promoteCommand, prune, recover, run: runCommand, summary }
 
 function usage() {
   const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length))
@@ -100,8 +101,8 @@ async function main(argv) {
     }
   }
 
-  // Each command lands here as it is built; see the build order in the design
-  // notes. Until then, say so plainly rather than pretending to work.
+  // Every listed command is built. Should one ever be listed before it is,
+  // it says so plainly rather than pretending to work.
   process.stderr.write(`detent: "${command}" is not implemented yet (${version})\n`)
   return 70
 }
