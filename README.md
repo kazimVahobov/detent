@@ -12,7 +12,8 @@ checks — and by nothing else.
 > and may send it back, never wave it through; `init` writes `product.json`
 > from a scan, `doctor` says what to change, and `dashboard` serves a page that
 > watches it all; tasks in different repositories run side by side, and
-> `promote` checks a whole batch on `agent/staging`. Not built yet: `plan`. [PROGRESS.md](PROGRESS.md) says where the build is.
+> `promote` checks a whole batch on `agent/staging`, and `plan` talks a task
+> through with an agent and checks the files it writes. [PROGRESS.md](PROGRESS.md) says where the build is.
 
 ## What it will do
 

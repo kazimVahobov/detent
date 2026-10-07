@@ -8,6 +8,10 @@ Notable changes, newest first. The format follows
 
 ### Added
 
+- Build step 13: `detent plan` opens an interactive session with the agent to
+  talk the work through and write the task files, then lists what was written,
+  validates the queue as `run` will, and names anything else that changed.
+
 - Build step 12: `detent init` asks the implementing agent, read-only, what the
   scan cannot see — each repository's role, relations, a gauge where nothing is
   declared — forced to a schema and retried on a mismatch; then drops whatever
@@ -28,6 +32,9 @@ Notable changes, newest first. The format follows
   not pass ends the run there.
 
 ### Fixed
+
+- A task file that cannot be read still takes part in the check for repeated
+  numbers: a broken task is no excuse for a second one with its number.
 
 - `detent summary | head` and every other command piped into a reader that
   stops early end quietly, not with an EPIPE stack trace.

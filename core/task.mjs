@@ -26,6 +26,7 @@ export class QueueError extends Error {
 export function readQueue(productDir, product) {
   const problems = []
   const tasks = []
+  const unreadable = []
   const repos = new Set(product.repos.map((repo) => repo.name))
 
   for (const folder of FOLDERS) {
@@ -60,7 +61,12 @@ export function readQueue(productDir, product) {
 
       const { task, problems: found } = parseTask(readFileSync(file, 'utf8'), { id, slug })
       for (const problem of found) problems.push(`${where}: ${problem}`)
-      if (!task) continue
+      if (!task) {
+        // Its number is in its file name, so it still takes part in the
+        // uniqueness check: a broken task is no excuse for a second one.
+        unreadable.push({ id, slug, folder, file })
+        continue
+      }
       if (!repos.has(task.repo)) problems.push(`${where}: repo "${task.repo}" is not in product.json`)
       tasks.push({ ...task, folder, file })
     }
@@ -68,7 +74,7 @@ export function readQueue(productDir, product) {
 
   // The number is the key, compared as a number: 0042 and 00042 are one task.
   const byNumber = new Map()
-  for (const task of tasks) {
+  for (const task of [...tasks, ...unreadable].sort((a, b) => FOLDERS.indexOf(a.folder) - FOLDERS.indexOf(b.folder) || a.file.localeCompare(b.file))) {
     const n = Number(task.id)
     const first = byNumber.get(n)
     if (first) problems.push(`tasks/${task.folder}/${task.id}-${task.slug}.md: id ${task.id} is already taken by tasks/${first.folder}/${first.id}-${first.slug}.md`)
