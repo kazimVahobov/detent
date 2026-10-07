@@ -29,7 +29,7 @@ This file is a claim about what exists, so the claim is checked:
 | 10 | `promote`: `agent/staging`, the batch profile, its journal line | done | `test/promote.test.mjs`, `test/doctor.test.mjs` | 2026-10-06 |
 | 11 | the acceptance pass | done | `test/acceptance.test.mjs` | 2026-10-06 |
 | 12 | `init` pass 2 — the model pass and its schema | done | `test/model-pass.test.mjs` | 2026-10-07 |
-| 13 | `plan` | todo | — | — |
+| 13 | `plan` | done | `test/plan.test.mjs` | 2026-10-07 |
 
 States are `todo`, `wip`, `done`. Step 3 is where the tests live: it holds the
 invariant that every exit leaves the repository on `agent/dev` with a clean tree

@@ -755,6 +755,21 @@ finding, it prints the command.
 - **`gauge.promote` declared with no `branches.staging`** — a declared check
   that nothing ever runs is the same invented green as a missing gauge (§6)
 
+### Plan
+
+`detent plan [brief…] [--agent claude|codex|gemini]` opens the agent's own
+interactive session in the terminal, in the product folder, with an opening
+that gives it the task format of §4, the repositories with their roles and
+relations, the next free numbers and the rules — one task per repository,
+`touches_contract` only for what others depend on, criteria someone can check —
+and asks it to talk the work through before writing anything. Edits are
+accepted without asking, because writing task files is the whole job.
+
+When the session ends, detent checks what it left: new and changed tasks in
+`todo/` are listed and the queue is validated exactly as `run` will validate
+it; a task that would not run is reported and kept; and a change to a
+repository, to `product.json` or to a task outside `todo/` is named.
+
 ### The dashboard
 
 `detent dashboard [--port 4100]` serves one page on `127.0.0.1` that watches
