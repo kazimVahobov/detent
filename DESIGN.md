@@ -755,6 +755,14 @@ finding, it prints the command.
 - **`gauge.promote` declared with no `branches.staging`** — a declared check
   that nothing ever runs is the same invented green as a missing gauge (§6)
 
+### Prune
+
+`detent prune [repo…] [--dry-run]` deletes `agent/task-*` branches whose every
+commit is already on `agent/dev` — a landed task's branch is deleted when it
+lands, so what remains is mostly paused work, which prune keeps. It never
+touches a branch outside `refs/heads/agent/task-`, the branch that is checked
+out, or the branch of a task that is running.
+
 ### Plan
 
 `detent plan [brief…] [--agent claude|codex|gemini]` opens the agent's own
