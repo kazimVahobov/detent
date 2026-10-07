@@ -143,7 +143,7 @@ test('detent init writes product.json, then proposes rather than overwrites', ()
 
   const first = init()
   assert.match(first, /^wrote \.detent\/product\.json — 4 repositories: shop-api, shop-docs, shop-svc, shop-web$/m)
-  assert.match(first, /shop-web: no gauge stages found/)
+  assert.match(first, /shop-web: no gauge stages — /)
   const written = JSON.parse(readFileSync(join(dir, '.detent', 'product.json'), 'utf8'))
   assert.equal(written.repos.length, 4)
 

@@ -8,6 +8,11 @@ Notable changes, newest first. The format follows
 
 ### Added
 
+- Build step 12: `detent init` asks the implementing agent, read-only, what the
+  scan cannot see — each repository's role, relations, a gauge where nothing is
+  declared — forced to a schema and retried on a mismatch; then drops whatever
+  the scan does not support. `--no-agent` stops after the scan.
+
 - Build step 10: `detent promote` merges `agent/dev` into `agent/staging`
   behind the `promote` profile run on the merged tree. Red promotes nothing and
   reverts nothing; a conflict is aborted; both tell the developer. A

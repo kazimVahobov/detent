@@ -707,6 +707,18 @@ or the first such person leaves.
 Re-running `init` produces a **diff to review**, not a silent overwrite. The
 machine proposes, a person accepts.
 
+Passes 2 and 3, as built: the implementing agent is run **read-only** on the
+product folder with the scan's skeleton and each README, and must answer one
+JSON object — `repos` with a `role` and, only where the scan found nothing to
+propose, a `gauge`; `edges` with a `kind`. An answer off the schema is sent
+back with its problems, three attempts in all, and then pass 1 is written
+alone. Pass 3 drops a repository the scan did not find, an edge to one or to
+itself, and a stage that runs a script or make target the repository does not
+declare. What survives fills only what pass 1 left empty — a gauge from
+declared scripts is never replaced — and an edge is written with
+`source: "model"`. The output says which fields came from the model and what
+was dropped.
+
 What pass 1 writes, from files and git alone: every git repository directly in
 the product folder; `compare` from the branches that exist (`dev`, `develop`,
 `main`, `master`, in that order); gauge stages from scripts the repository
